@@ -1,18 +1,16 @@
 package models
 
-type Position struct{ X, Y int }
-
-// SolverResult adalah output dari Algoritma yang akan dikonsumsi oleh GUI
-type SolverResult struct {
-	PathHistory []Position // Array history pergerakan (untuk animasi playback)
-	TotalCost   int
-	TimeMs      int64
-	NodesEval   int
+type GameState struct {
+	Pos     Position // posisi aktor setelah slide berhenti
+	NextNum int      // angka berikutnya yang harus dilewati, -1 kalo sisa
 }
 
-// MapData adalah representasi papan
-type MapData struct {
-	Grid          [][]rune
-	Costs         [][]int
-	Width, Height int
+func (s *GameState) IsGoal(m *MapData) bool {
+	return s.NextNum == -1 && s.Pos == m.GoalPos
+}
+
+type MoveRecord struct {
+	Direction Direction
+	NewPos    Position
+	MoveCost  int
 }
