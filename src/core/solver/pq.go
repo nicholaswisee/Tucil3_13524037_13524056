@@ -1,4 +1,4 @@
-package queue
+package solver
 
 import "github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 
