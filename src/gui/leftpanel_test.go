@@ -64,3 +64,19 @@ func TestLeftPanel_SetStepLabel(t *testing.T) {
 		t.Errorf("unexpected step label: %s", lp.StepLabel.Text)
 	}
 }
+
+func TestLeftPanel_SetHeuristicEnabled(t *testing.T) {
+	testApp := test.NewApp()
+	defer testApp.Quit()
+	lp := NewLeftPanel()
+
+	lp.SetHeuristicEnabled(true)
+	if lp.HeuristicSelect.Disabled() {
+		t.Error("expected heuristic select to be enabled")
+	}
+
+	lp.SetHeuristicEnabled(false)
+	if !lp.HeuristicSelect.Disabled() {
+		t.Error("expected heuristic select to be disabled")
+	}
+}

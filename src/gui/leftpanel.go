@@ -84,3 +84,11 @@ func (lp *LeftPanel) SetStats(timeMs int64, iterations int) {
 func (lp *LeftPanel) SetStepLabel(current, total int) {
 	lp.StepLabel.SetText(fmt.Sprintf("Step %d / %d", current, total))
 }
+
+func (lp *LeftPanel) SetHeuristicEnabled(enabled bool) {
+	if enabled {
+		lp.HeuristicSelect.Enable()
+	} else {
+		lp.HeuristicSelect.Disable()
+	}
+}
