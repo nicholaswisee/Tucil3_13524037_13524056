@@ -7,37 +7,43 @@ import (
 	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 )
 
-type UCSSolver struct{}
-
-func (u *UCSSolver) Name() string {
-	return "UCS"
+type AStarSolver struct {
+	HeuristicID int
 }
 
-func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
+func (a *AStarSolver) Name() string { return "A*" }
+
+func (a *AStarSolver) getH(state *models.GameState, m *models.MapData) int {
+	if a.HeuristicID == 3 {
+		return Heuristic3(state, m)
+	}
+	return Heuristic1(state, m)
+}
+
+func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 	startTime := time.Now()
 
 	startNum := 0
-
 	if m.TotalNumbers == 0 {
 		startNum = -1
 	}
-
 	initState := models.GameState{Pos: m.StartPos, NextNum: startNum}
 
 	pq := make(PriorityQueue, 0, 1000)
 	heap.Init(&pq)
 
+	initH := a.getH(&initState, m)
+
 	heap.Push(&pq, &SearchNode{
 		State:       initState,
-		Priority:    0,
-		Cost:        0,
+		Priority:    initH, // f(n) = g(n) + h(n) -> 0 + initH
+		Cost:        0,     // g(n)
 		Path:        make([]models.MoveRecord, 0),
 		PathHistory: []models.Position{m.StartPos},
 	})
 
 	visited := make(map[models.StateKey]int)
 	visited[initState.GetKey()] = 0
-
 	nodesEvaluated := 0
 
 	for pq.Len() > 0 {
@@ -52,7 +58,7 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 				TimeMs:      time.Since(startTime).Milliseconds(),
 				NodesEval:   nodesEvaluated,
 				Success:     true,
-				Algorithm:   "UCS",
+				Algorithm:   "A*",
 			}, nil
 		}
 
@@ -64,11 +70,14 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 			newState, moveCost, isValid := currNode.State.Slide(m, dir)
 
 			if isValid {
-				newCost := currNode.Cost + moveCost
+				newGCost := currNode.Cost + moveCost
 				stateKey := newState.GetKey()
 
-				if bestCost, exists := visited[stateKey]; !exists || newCost < bestCost {
-					visited[stateKey] = newCost
+				if bestCost, exists := visited[stateKey]; !exists || newGCost > bestCost {
+					visited[stateKey] = newGCost
+
+					hCost := a.getH(&newState, m)
+					fCost := newGCost + hCost
 
 					newPath := make([]models.MoveRecord, len(currNode.Path), len(currNode.Path)+1)
 					copy(newPath, currNode.Path)
@@ -80,8 +89,8 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 
 					heap.Push(&pq, &SearchNode{
 						State:       newState,
-						Priority:    newCost,
-						Cost:        newCost,
+						Priority:    fCost,
+						Cost:        newGCost,
 						Path:        newPath,
 						PathHistory: newHistory,
 					})
@@ -90,5 +99,5 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		}
 	}
 
-	return &models.SolverResult{Success: false, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "UCS"}, nil
+	return &models.SolverResult{Success: false, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "A*"}, nil
 }

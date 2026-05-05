@@ -4,6 +4,7 @@ import "github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 
 type SearchNode struct {
 	State       models.GameState
+	Priority    int
 	Cost        int
 	Path        []models.MoveRecord
 	PathHistory []models.Position
@@ -15,7 +16,7 @@ type PriorityQueue []*SearchNode
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].Cost < pq[j].Cost
+	return pq[i].Priority < pq[j].Priority
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
