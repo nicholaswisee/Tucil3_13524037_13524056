@@ -21,6 +21,7 @@ type MapData struct {
 	GoalPos      Position         // Lokasi O
 	NumberPos    map[int]Position // Lokasi setiap angka 0..9 yang ada
 	TotalNumbers int              // Banyak angka pada papan
+	MinCost      int              // Biaya minimum di seluruh papan (untuk heuristic)
 }
 
 func (m *MapData) InBounds(p Position) bool {

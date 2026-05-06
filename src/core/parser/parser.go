@@ -3,6 +3,7 @@ package parser
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -63,6 +64,7 @@ func ParseFile(path string) (*models.MapData, error) {
 
 	// N baris cost
 	costs := make([][]int, n)
+	minCost := math.MaxInt
 	for i := 0; i < n; i++ {
 		if !scanner.Scan() {
 			return nil, fmt.Errorf("kekurangan baris cost: diharapkan %d baris, hanya ditemukan %d", n, i)
@@ -78,6 +80,9 @@ func ParseFile(path string) (*models.MapData, error) {
 				return nil, fmt.Errorf("cost pada baris %d kolom %d bukan angka valid: %w", i+1, j+1, err)
 			}
 			costs[i][j] = val
+			if val < minCost {
+				minCost = val
+			}
 		}
 	}
 
@@ -94,6 +99,7 @@ func ParseFile(path string) (*models.MapData, error) {
 		Width:     m,
 		Height:    n,
 		NumberPos: make(map[int]models.Position),
+		MinCost:   minCost,
 	}
 
 	if err := validateBoard(mapData); err != nil {
