@@ -14,10 +14,14 @@ type AStarSolver struct {
 func (a *AStarSolver) Name() string { return "A*" }
 
 func (a *AStarSolver) getH(state *models.GameState, m *models.MapData) int {
-	if a.HeuristicID == 3 {
+	switch a.HeuristicID {
+	case 2:
+		return Heuristic2(state, m)
+	case 3:
 		return Heuristic3(state, m)
+	default:
+		return Heuristic1(state, m)
 	}
-	return Heuristic1(state, m)
 }
 
 func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {

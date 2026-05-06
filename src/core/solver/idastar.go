@@ -14,10 +14,14 @@ type IDAStarSolver struct {
 func (i *IDAStarSolver) Name() string { return "IDA*" }
 
 func (i *IDAStarSolver) getH(state *models.GameState, m *models.MapData) int {
-	if i.HeuristicID == 3 {
+	switch i.HeuristicID {
+	case 2:
+		return Heuristic2(state, m)
+	case 3:
 		return Heuristic3(state, m)
+	default:
+		return Heuristic1(state, m)
 	}
-	return Heuristic1(state, m)
 }
 
 const foundCode = -1
