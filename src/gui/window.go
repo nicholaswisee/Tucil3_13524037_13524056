@@ -13,6 +13,7 @@ import (
 
 	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/parser"
+	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/solver"
 )
 
 var (
@@ -45,12 +46,10 @@ func NewMainWindow() *MainWindow {
 		State:         state,
 	}
 
-	// Wire up algorithm picker: disable heuristic for UCS
 	leftPanel.AlgorithmSelect.OnChanged = func(alg string) {
 		mw.LeftPanel.SetHeuristicEnabled(alg != "UCS")
 	}
 
-	// Wire up Import button
 	leftPanel.ImportBtn.OnTapped = func() {
 		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			if err != nil || reader == nil {
@@ -68,6 +67,8 @@ func NewMainWindow() *MainWindow {
 			boardRenderer.Refresh()
 			mw.LeftPanel.SetStepLabel(0, 0)
 			mw.LeftPanel.SetStats(0, 0)
+			mw.LeftPanel.SetSolution("-")
+			mw.LeftPanel.SetCost(0)
 		}, w)
 
 		fd.SetFilter(storage.NewExtensionFileFilter([]string{".txt"}))
@@ -81,7 +82,6 @@ func NewMainWindow() *MainWindow {
 		fd.Show()
 	}
 
-	// Wire up Export button
 	leftPanel.ExportBtn.OnTapped = func() {
 		if state.MapData == nil {
 			dialog.ShowInformation("Export", "No board loaded to export.", w)
@@ -112,16 +112,57 @@ func NewMainWindow() *MainWindow {
 		sd.Show()
 	}
 
-	// Wire up Run button (stub until solver is implemented)
 	leftPanel.RunBtn.OnTapped = func() {
 		if state.MapData == nil {
 			dialog.ShowInformation("Run", "Please import a board configuration first.", w)
 			return
 		}
-		fmt.Println("Run clicked — algorithm:", leftPanel.AlgorithmSelect.Selected, "heuristic:", leftPanel.HeuristicSelect.Selected)
+
+		alg := leftPanel.AlgorithmSelect.Selected
+		heurStr := leftPanel.HeuristicSelect.Selected
+		heurID := heuristicID(heurStr)
+
+		var result *models.SolverResult
+		var err error
+		switch alg {
+		case "UCS":
+			s := &solver.UCSSolver{}
+			result, err = s.Solve(state.MapData)
+		case "GBFS":
+			s := &solver.GBFSSolver{HeuristicID: heurID}
+			result, err = s.Solve(state.MapData)
+		case "A*":
+			s := &solver.AStarSolver{HeuristicID: heurID}
+			result, err = s.Solve(state.MapData)
+		case "IDA*":
+			s := &solver.IDAStarSolver{HeuristicID: heurID}
+			result, err = s.Solve(state.MapData)
+		default:
+			dialog.ShowError(fmt.Errorf("unknown algorithm: %s", alg), w)
+			return
+		}
+		if err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+
+		state.SetResult(result)
+
+		if result.Success {
+			solutionStr := pathToString(result.Path)
+			mw.LeftPanel.SetSolution(solutionStr)
+			mw.LeftPanel.SetCost(result.TotalCost)
+			totalSteps := len(result.PathHistory) - 1
+			mw.LeftPanel.SetStepLabel(0, totalSteps)
+		} else {
+			mw.LeftPanel.SetNoSolution()
+			mw.LeftPanel.SetStepLabel(0, 0)
+		}
+
+		mw.LeftPanel.SetStats(result.TimeMs, result.NodesEval)
+		boardRenderer.Refresh()
 	}
 
-	// Wire up playback buttons
 	leftPanel.FirstStepBtn.OnTapped = func() {
 		state.JumpToStart()
 		mw.refreshPlayback()
@@ -157,6 +198,25 @@ func (mw *MainWindow) refreshPlayback() {
 
 func (mw *MainWindow) ShowAndRun() {
 	mw.Window.ShowAndRun()
+}
+
+func heuristicID(heurStr string) int {
+	switch heurStr {
+	case "Heuristic 2":
+		return 2
+	case "Heuristic 3":
+		return 3
+	default:
+		return 1
+	}
+}
+
+func pathToString(path []models.MoveRecord) string {
+	var sb strings.Builder
+	for _, mr := range path {
+		sb.WriteString(mr.Direction.DirectionName())
+	}
+	return sb.String()
 }
 
 func formatMapData(m *models.MapData) string {

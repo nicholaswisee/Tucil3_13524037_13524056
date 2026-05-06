@@ -21,6 +21,8 @@ type LeftPanel struct {
 	NextStepBtn     *widget.Button
 	LastStepBtn     *widget.Button
 	StepLabel       *widget.Label
+	SolutionLabel   *widget.Label
+	CostLabel       *widget.Label
 	TimeLabel       *widget.Label
 	IterationsLabel *widget.Label
 }
@@ -28,7 +30,7 @@ type LeftPanel struct {
 func NewLeftPanel() *LeftPanel {
 	lp := &LeftPanel{}
 
-	lp.AlgorithmSelect = widget.NewSelect([]string{"UCS", "GBFS", "A*"}, func(string) {})
+	lp.AlgorithmSelect = widget.NewSelect([]string{"UCS", "GBFS", "A*", "IDA*"}, func(string) {})
 	lp.AlgorithmSelect.SetSelected("UCS")
 
 	lp.HeuristicSelect = widget.NewSelect([]string{"Heuristic 1", "Heuristic 2", "Heuristic 3"}, func(string) {})
@@ -45,8 +47,10 @@ func NewLeftPanel() *LeftPanel {
 	lp.LastStepBtn = widget.NewButton(">|", func() {})
 
 	lp.StepLabel = widget.NewLabel("Step 0 / 0")
-	lp.TimeLabel = widget.NewLabel("Time: 0 ms")
-	lp.IterationsLabel = widget.NewLabel("Iterations: 0")
+	lp.SolutionLabel = widget.NewLabel("Solusi: -")
+	lp.CostLabel = widget.NewLabel("Cost: -")
+	lp.TimeLabel = widget.NewLabel("Waktu eksekusi: -")
+	lp.IterationsLabel = widget.NewLabel("Banyak iterasi: -")
 
 	playbackRow := container.NewHBox(lp.FirstStepBtn, lp.PrevStepBtn, lp.NextStepBtn, lp.LastStepBtn, lp.StepLabel)
 
@@ -65,6 +69,8 @@ func NewLeftPanel() *LeftPanel {
 		playbackRow,
 		widget.NewSeparator(),
 		widget.NewLabel("Stats"),
+		lp.SolutionLabel,
+		lp.CostLabel,
 		lp.TimeLabel,
 		lp.IterationsLabel,
 	)
@@ -77,12 +83,27 @@ func (lp *LeftPanel) Object() fyne.CanvasObject {
 }
 
 func (lp *LeftPanel) SetStats(timeMs int64, iterations int) {
-	lp.TimeLabel.SetText(fmt.Sprintf("Time: %d ms", timeMs))
-	lp.IterationsLabel.SetText(fmt.Sprintf("Iterations: %d", iterations))
+	lp.TimeLabel.SetText(fmt.Sprintf(">> Waktu eksekusi: %d ms", timeMs))
+	lp.IterationsLabel.SetText(fmt.Sprintf(">> Banyak iterasi yang dilakukan: %d iterasi", iterations))
 }
 
 func (lp *LeftPanel) SetStepLabel(current, total int) {
 	lp.StepLabel.SetText(fmt.Sprintf("Step %d / %d", current, total))
+}
+
+func (lp *LeftPanel) SetSolution(solution string) {
+	lp.SolutionLabel.SetText(fmt.Sprintf("Solusi Yang Ditemukan: %s", solution))
+}
+
+func (lp *LeftPanel) SetCost(cost int) {
+	lp.CostLabel.SetText(fmt.Sprintf("Cost dari Solusi: %d", cost))
+}
+
+func (lp *LeftPanel) SetNoSolution() {
+	lp.SolutionLabel.SetText("Solusi Yang Ditemukan: Tidak ada solusi")
+	lp.CostLabel.SetText("Cost dari Solusi: -")
+	lp.TimeLabel.SetText("Waktu eksekusi: -")
+	lp.IterationsLabel.SetText("Banyak iterasi: -")
 }
 
 func (lp *LeftPanel) SetHeuristicEnabled(enabled bool) {
