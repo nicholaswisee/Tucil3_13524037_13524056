@@ -49,21 +49,29 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 	visited := make(map[models.StateKey]int)
 	visited[initState.GetKey()] = 0
 	nodesEvaluated := 0
+	var searchFrames []models.SearchFrame
 
 	for pq.Len() > 0 {
 		currNode := heap.Pop(&pq).(*SearchNode)
 		nodesEvaluated++
 
+		searchFrames = append(searchFrames, models.SearchFrame{
+			Current:  currNode.State.Pos,
+			Visited:  extractPositionsFromCostMap(visited),
+			Frontier: extractPositionsFromPQ(pq),
+		})
+
 		if currNode.State.IsGoal(m) {
-			return &models.SolverResult{
-				Path:        currNode.Path,
-				PathHistory: currNode.PathHistory,
-				TotalCost:   currNode.Cost,
-				TimeMs:      time.Since(startTime).Milliseconds(),
-				NodesEval:   nodesEvaluated,
-				Success:     true,
-				Algorithm:   "A*",
-			}, nil
+		return &models.SolverResult{
+			Path:         currNode.Path,
+			PathHistory:  currNode.PathHistory,
+			SearchFrames: searchFrames,
+			TotalCost:    currNode.Cost,
+			TimeMs:       time.Since(startTime).Milliseconds(),
+			NodesEval:    nodesEvaluated,
+			Success:      true,
+			Algorithm:    "A*",
+		}, nil
 		}
 
 		if bestCost, exists := visited[currNode.State.GetKey()]; exists && bestCost < currNode.Cost {
@@ -103,5 +111,5 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		}
 	}
 
-	return &models.SolverResult{Success: false, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "A*"}, nil
+	return &models.SolverResult{Success: false, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "A*", SearchFrames: searchFrames}, nil
 }
