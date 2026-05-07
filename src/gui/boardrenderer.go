@@ -18,16 +18,19 @@ import (
 )
 
 var (
-	colWall   = color.NRGBA{R: 64, G: 64, B: 64, A: 255}
-	colPath   = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
-	colLava   = color.NRGBA{R: 220, G: 20, B: 20, A: 255}
-	colStart  = color.NRGBA{R: 34, G: 180, B: 34, A: 255}
-	colGoal   = color.NRGBA{R: 255, G: 220, B: 50, A: 255} // yellow star
-	colNumber = color.NRGBA{R: 255, G: 220, B: 50, A: 255}
-	colPlayer = color.NRGBA{R: 255, G: 140, B: 20, A: 255}
-	colTrail  = color.NRGBA{R: 255, G: 140, B: 20, A: 120}
-	colText   = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
-	colBg     = color.NRGBA{R: 30, G: 30, B: 30, A: 255}
+	colBg       = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
+	colWall     = color.NRGBA{R: 59, G: 59, B: 79, A: 255}   // #3B3B4F
+	colPath     = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
+	colLava     = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
+	colStart    = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
+	colGoal     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumber   = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumberTx = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
+	colPlayer   = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
+	colTrail    = color.NRGBA{R: 209, G: 154, B: 102, A: 153} // #D19A66 @ 60%
+	colVisited  = color.NRGBA{R: 198, G: 120, B: 221, A: 102} // #C678DD @ 40%
+	colFrontier = color.NRGBA{R: 97, G: 175, B: 239, A: 77}   // #61AFEF @ 30%
+	colCurrent  = color.NRGBA{R: 97, G: 175, B: 239, A: 255}  // #61AFEF
 )
 
 var numberFace font.Face
@@ -74,7 +77,7 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		return img
 	}
 
-	padding := 4
+	padding := 8
 	availableW := w - padding*(m.Width+1)
 	availableH := h - padding*(m.Height+1)
 	if availableW <= 0 || availableH <= 0 {
@@ -96,24 +99,72 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 	offsetX := (w - totalGridW) / 2
 	offsetY := (h - totalGridH) / 2
 
+	radius := 4
+	if cellSize < 10 {
+		radius = 2
+	}
+	if cellSize < 6 {
+		radius = 0
+	}
+
 	// 1. Draw all tiles
 	for i := 0; i < m.Height; i++ {
 		for j := 0; j < m.Width; j++ {
 			x := offsetX + padding + j*(cellSize+padding)
 			y := offsetY + padding + i*(cellSize+padding)
-			rect := image.Rect(x, y, x+cellSize, y+cellSize)
 			tile := m.TileAt(models.Position{X: i, Y: j})
 			col := tileColor(tile)
-			draw.Draw(img, rect, image.NewUniform(col), image.Point{}, draw.Src)
+			if radius > 0 {
+				drawRoundedRect(img, x, y, cellSize, cellSize, radius, col)
+			} else {
+				rect := image.Rect(x, y, x+cellSize, y+cellSize)
+				draw.Draw(img, rect, image.NewUniform(col), image.Point{}, draw.Src)
+			}
 
 			if tile == models.TileNumber {
 				ch := m.Grid[i][j]
-				drawCenteredText(img, string(ch), x+cellSize/2, y+cellSize/2, cellSize)
+				size := cellSize * 60 / 100
+				if size < 8 {
+					size = 8
+				}
+				drawCenteredText(img, string(ch), x+cellSize/2, y+cellSize/2, size)
 			}
 		}
 	}
 
-	// 2. Draw yellow star on goal tile (sits on top of default/path tile)
+	// 2. Search phase overlays
+	if b.state.SearchPhase && b.state.Result != nil && len(b.state.Result.SearchFrames) > 0 {
+		frame := b.state.Result.SearchFrames[b.state.SearchStep]
+		for _, p := range frame.Visited {
+			x := offsetX + padding + p.Y*(cellSize+padding)
+			y := offsetY + padding + p.X*(cellSize+padding)
+			if radius > 0 {
+				drawRoundedRect(img, x, y, cellSize, cellSize, radius, colVisited)
+			} else {
+				rect := image.Rect(x, y, x+cellSize, y+cellSize)
+				draw.Draw(img, rect, image.NewUniform(colVisited), image.Point{}, draw.Src)
+			}
+		}
+		for _, p := range frame.Frontier {
+			x := offsetX + padding + p.Y*(cellSize+padding)
+			y := offsetY + padding + p.X*(cellSize+padding)
+			if radius > 0 {
+				drawRoundedRect(img, x, y, cellSize, cellSize, radius, colFrontier)
+			} else {
+				rect := image.Rect(x, y, x+cellSize, y+cellSize)
+				draw.Draw(img, rect, image.NewUniform(colFrontier), image.Point{}, draw.Src)
+			}
+		}
+		cx := offsetX + padding + frame.Current.Y*(cellSize+padding) + cellSize/2
+		cy := offsetY + padding + frame.Current.X*(cellSize+padding) + cellSize/2
+		r := cellSize / 2
+		if r < 2 {
+			r = 2
+		}
+		drawCircle(img, cx, cy, r, colCurrent)
+	}
+
+	// 3. Goal star
 	goalPos := m.GoalPos
 	gx := offsetX + padding + goalPos.Y*(cellSize+padding) + cellSize/2
 	gy := offsetY + padding + goalPos.X*(cellSize+padding) + cellSize/2
@@ -127,8 +178,8 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 	}
 	drawStar(img, gx, gy, starOuter, starInner, colGoal)
 
-	// 3. Draw path trail
-	if b.state.Result != nil && b.state.Result.Success {
+	// 4. Path trail (solution phase only)
+	if !b.state.SearchPhase && b.state.Result != nil && b.state.Result.Success {
 		history := b.state.Result.PathHistory
 		steps := b.state.CurrentStep
 		if steps > 0 && len(history) > 1 {
@@ -139,20 +190,24 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 				cy1 := offsetY + padding + p1.X*(cellSize+padding) + cellSize/2
 				cx2 := offsetX + padding + p2.Y*(cellSize+padding) + cellSize/2
 				cy2 := offsetY + padding + p2.X*(cellSize+padding) + cellSize/2
-				drawLine(img, cx1, cy1, cx2, cy2, colTrail)
+				drawThickLine(img, cx1, cy1, cx2, cy2, 3, colTrail)
 			}
 		}
 	}
 
-	// 4. Draw player circle on top of current tile
-	pos := b.state.CurrentPos()
-	cx := offsetX + padding + pos.Y*(cellSize+padding) + cellSize/2
-	cy := offsetY + padding + pos.X*(cellSize+padding) + cellSize/2
-	radius := cellSize / 3
-	if radius < 2 {
-		radius = 2
+	// 5. Player token (solution phase only)
+	if !b.state.SearchPhase {
+		pos := b.state.CurrentPos()
+		cx := offsetX + padding + pos.Y*(cellSize+padding) + cellSize/2
+		cy := offsetY + padding + pos.X*(cellSize+padding) + cellSize/2
+		radiusP := cellSize / 3
+		if radiusP < 2 {
+			radiusP = 2
+		}
+		drawCircle(img, cx, cy, radiusP, colPlayer)
+		outlineColor := color.NRGBA{R: 229, G: 192, B: 123, A: 255}
+		drawCircleOutline(img, cx, cy, radiusP+2, outlineColor)
 	}
-	drawCircle(img, cx, cy, radius, colPlayer)
 
 	return img
 }
@@ -168,23 +223,74 @@ func tileColor(t models.TileType) color.Color {
 	case models.TileStart:
 		return colStart
 	case models.TileGoal:
-		return colPath // goal uses default tile; star drawn on top
+		return colPath // goal uses path tile; star drawn on top
 	case models.TileNumber:
 		return colNumber
 	}
 	return colPath
 }
 
-func drawCenteredText(img *image.RGBA, s string, cx, cy, cellSize int) {
-	if cellSize < 12 || numberFace == nil {
+func drawRoundedRect(img *image.RGBA, x, y, w, h, r int, col color.Color) {
+	if r > w/2 {
+		r = w / 2
+	}
+	if r > h/2 {
+		r = h / 2
+	}
+	for dy := 0; dy < h; dy++ {
+		for dx := 0; dx < w; dx++ {
+			px := x + dx
+			py := y + dy
+			corner := false
+			cx, cy := -1, -1
+			if dx < r && dy < r {
+				corner = true
+				cx, cy = x+r, y+r
+			} else if dx >= w-r && dy < r {
+				corner = true
+				cx, cy = x+w-r-1, y+r
+			} else if dx < r && dy >= h-r {
+				corner = true
+				cx, cy = x+r, y+h-r-1
+			} else if dx >= w-r && dy >= h-r {
+				corner = true
+				cx, cy = x+w-r-1, y+h-r-1
+			}
+			if corner {
+				d2 := (px-cx)*(px-cx) + (py-cy)*(py-cy)
+				if d2 > r*r {
+					continue
+				}
+			}
+			img.Set(px, py, col)
+		}
+	}
+}
+
+func drawCenteredText(img *image.RGBA, s string, cx, cy, fontSize int) {
+	if fontSize < 8 || numberFace == nil {
 		return
 	}
-	metrics := numberFace.Metrics()
+	var face font.Face = numberFace
+	if fontSize != 20 {
+		tt, err := opentype.Parse(gomono.TTF)
+		if err == nil {
+			f, err := opentype.NewFace(tt, &opentype.FaceOptions{
+				Size:    float64(fontSize),
+				DPI:     72,
+				Hinting: font.HintingFull,
+			})
+			if err == nil {
+				face = f
+			}
+		}
+	}
+	metrics := face.Metrics()
 	textH := (metrics.Ascent + metrics.Descent).Ceil()
 	d := &font.Drawer{
 		Dst:  img,
-		Src:  image.NewUniform(colText),
-		Face: numberFace,
+		Src:  image.NewUniform(colNumberTx),
+		Face: face,
 	}
 	bounds := d.MeasureString(s)
 	textW := bounds.Ceil()
@@ -192,6 +298,25 @@ func drawCenteredText(img *image.RGBA, s string, cx, cy, cellSize int) {
 	y := cy + textH/2 - metrics.Descent.Ceil()
 	d.Dot = fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
 	d.DrawString(s)
+}
+
+func drawThickLine(img *image.RGBA, x0, y0, x1, y1, thickness int, col color.Color) {
+	dx := x1 - x0
+	dy := y1 - y0
+	steps := abs(dx)
+	if abs(dy) > steps {
+		steps = abs(dy)
+	}
+	if steps == 0 {
+		drawCircle(img, x0, y0, thickness/2, col)
+		return
+	}
+	for i := 0; i <= steps; i++ {
+		t := float64(i) / float64(steps)
+		x := x0 + int(float64(dx)*t)
+		y := y0 + int(float64(dy)*t)
+		drawCircle(img, x, y, thickness/2, col)
+	}
 }
 
 func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col color.Color) {
@@ -228,6 +353,17 @@ func drawCircle(img *image.RGBA, cx, cy, r int, col color.Color) {
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
 			if x*x+y*y <= r*r {
+				img.Set(cx+x, cy+y, col)
+			}
+		}
+	}
+}
+
+func drawCircleOutline(img *image.RGBA, cx, cy, r int, col color.Color) {
+	for y := -r; y <= r; y++ {
+		for x := -r; x <= r; x++ {
+			d2 := x*x + y*y
+			if d2 <= r*r && d2 > (r-2)*(r-2) {
 				img.Set(cx+x, cy+y, col)
 			}
 		}
