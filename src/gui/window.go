@@ -66,9 +66,12 @@ func NewMainWindow() *MainWindow {
 			state.SetMap(m)
 			boardRenderer.Refresh()
 			mw.LeftPanel.SetStepLabel(0, 0)
+			mw.LeftPanel.SetSearchStepLabel(0, 0)
 			mw.LeftPanel.SetStats(0, 0)
 			mw.LeftPanel.SetSolution("-")
 			mw.LeftPanel.SetCost(0)
+			mw.LeftPanel.VisitedLabel.SetText("Visited: -")
+			mw.LeftPanel.FrontierLabel.SetText("Frontier: -")
 		}, w)
 
 		fd.SetFilter(storage.NewExtensionFileFilter([]string{".txt"}))
@@ -147,6 +150,7 @@ func NewMainWindow() *MainWindow {
 		}
 
 		state.SetResult(result)
+		mw.LeftPanel.SetPhaseToggleLabel(true)
 
 		if result.Success {
 			solutionStr := pathToString(result.Path)
@@ -160,23 +164,47 @@ func NewMainWindow() *MainWindow {
 		}
 
 		mw.LeftPanel.SetStats(result.TimeMs, result.NodesEval)
+		mw.refreshPlayback()
+		boardRenderer.Refresh()
+	}
+
+	leftPanel.PhaseToggleBtn.OnTapped = func() {
+		state.TogglePhase()
+		mw.LeftPanel.SetPhaseToggleLabel(state.SearchPhase)
+		mw.refreshPlayback()
 		boardRenderer.Refresh()
 	}
 
 	leftPanel.FirstStepBtn.OnTapped = func() {
-		state.JumpToStart()
+		if state.SearchPhase {
+			state.JumpToSearchStart()
+		} else {
+			state.JumpToStart()
+		}
 		mw.refreshPlayback()
 	}
 	leftPanel.PrevStepBtn.OnTapped = func() {
-		state.StepBackward()
+		if state.SearchPhase {
+			state.SearchBackward()
+		} else {
+			state.StepBackward()
+		}
 		mw.refreshPlayback()
 	}
 	leftPanel.NextStepBtn.OnTapped = func() {
-		state.StepForward()
+		if state.SearchPhase {
+			state.SearchForward()
+		} else {
+			state.StepForward()
+		}
 		mw.refreshPlayback()
 	}
 	leftPanel.LastStepBtn.OnTapped = func() {
-		state.JumpToEnd()
+		if state.SearchPhase {
+			state.JumpToSearchEnd()
+		} else {
+			state.JumpToEnd()
+		}
 		mw.refreshPlayback()
 	}
 
@@ -188,11 +216,24 @@ func NewMainWindow() *MainWindow {
 }
 
 func (mw *MainWindow) refreshPlayback() {
-	total := 0
-	if mw.State.Result != nil && mw.State.Result.Success {
-		total = len(mw.State.Result.PathHistory) - 1
+	if mw.State.SearchPhase && mw.State.Result != nil {
+		total := len(mw.State.Result.SearchFrames)
+		if total > 0 {
+			mw.LeftPanel.SetSearchStepLabel(mw.State.SearchStep, total-1)
+			frame := mw.State.Result.SearchFrames[mw.State.SearchStep]
+			mw.LeftPanel.SetSearchFrameStats(frame)
+		} else {
+			mw.LeftPanel.SetSearchStepLabel(0, 0)
+			mw.LeftPanel.VisitedLabel.SetText("Visited: -")
+			mw.LeftPanel.FrontierLabel.SetText("Frontier: -")
+		}
+	} else {
+		total := 0
+		if mw.State.Result != nil && mw.State.Result.Success {
+			total = len(mw.State.Result.PathHistory) - 1
+		}
+		mw.LeftPanel.SetStepLabel(mw.State.CurrentStep, total)
 	}
-	mw.LeftPanel.SetStepLabel(mw.State.CurrentStep, total)
 	mw.BoardRenderer.Refresh()
 }
 
