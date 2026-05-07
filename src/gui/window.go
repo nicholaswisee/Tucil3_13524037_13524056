@@ -220,8 +220,7 @@ func (mw *MainWindow) refreshPlayback() {
 		total := len(mw.State.Result.SearchFrames)
 		if total > 0 {
 			mw.LeftPanel.SetSearchStepLabel(mw.State.SearchStep, total-1)
-			frame := mw.State.Result.SearchFrames[mw.State.SearchStep]
-			mw.LeftPanel.SetSearchFrameStats(frame)
+			mw.LeftPanel.SetSearchStatsFromState(mw.State)
 		} else {
 			mw.LeftPanel.SetSearchStepLabel(0, 0)
 			mw.LeftPanel.VisitedLabel.SetText("Visited: -")

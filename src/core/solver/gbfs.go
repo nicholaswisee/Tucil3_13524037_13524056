@@ -55,23 +55,25 @@ func (g *GBFSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		currNode := heap.Pop(&pq).(*SearchNode)
 		nodesEvaluated++
 
-		searchFrames = append(searchFrames, models.SearchFrame{
-			Current:  currNode.State.Pos,
-			Visited:  extractPositionsFromMap(visited),
-			Frontier: extractPositionsFromPQ(pq),
-		})
+		var children []models.Position
 
 		if currNode.State.IsGoal(m) {
-		return &models.SolverResult{
-			Path:         currNode.Path,
-			PathHistory:  currNode.PathHistory,
-			SearchFrames: searchFrames,
-			TotalCost:    currNode.Cost,
-			TimeMs:       time.Since(startTime).Milliseconds(),
-			NodesEval:    nodesEvaluated,
-			Success:      true,
-			Algorithm:    "GBFS",
-		}, nil
+			if len(searchFrames) < models.MaxSearchFrames {
+				searchFrames = append(searchFrames, models.SearchFrame{
+					Current:  currNode.State.Pos,
+					Children: children,
+				})
+			}
+			return &models.SolverResult{
+				Path:         currNode.Path,
+				PathHistory:  currNode.PathHistory,
+				SearchFrames: searchFrames,
+				TotalCost:    currNode.Cost,
+				TimeMs:       time.Since(startTime).Milliseconds(),
+				NodesEval:    nodesEvaluated,
+				Success:      true,
+				Algorithm:    "GBFS",
+			}, nil
 		}
 
 		for _, dir := range models.Directions {
@@ -82,6 +84,7 @@ func (g *GBFSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 
 				if !visited[stateKey] {
 					visited[stateKey] = true
+					children = append(children, newState.Pos)
 
 					newCost := currNode.Cost + moveCost
 					hCost := g.getH(&newState, m)
@@ -103,6 +106,13 @@ func (g *GBFSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 					})
 				}
 			}
+		}
+
+		if len(searchFrames) < models.MaxSearchFrames {
+			searchFrames = append(searchFrames, models.SearchFrame{
+				Current:  currNode.State.Pos,
+				Children: children,
+			})
 		}
 	}
 

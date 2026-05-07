@@ -41,20 +41,28 @@ type idaContext struct {
 func (ctx *idaContext) search(state models.GameState, g int) int {
 	ctx.nodesEval++
 
-	ctx.searchFrames = append(ctx.searchFrames, models.SearchFrame{
-		Current:  state.Pos,
-		Visited:  extractPositionsFromMap(ctx.inPath),
-		Frontier: []models.Position{},
-	})
+	var children []models.Position
 
 	h := ctx.getH(&state, ctx.m)
 	f := g + h
 
 	if f > ctx.threshold {
+		if len(ctx.searchFrames) < models.MaxSearchFrames {
+			ctx.searchFrames = append(ctx.searchFrames, models.SearchFrame{
+				Current:  state.Pos,
+				Children: children,
+			})
+		}
 		return f
 	}
 
 	if state.IsGoal(ctx.m) {
+		if len(ctx.searchFrames) < models.MaxSearchFrames {
+			ctx.searchFrames = append(ctx.searchFrames, models.SearchFrame{
+				Current:  state.Pos,
+				Children: children,
+			})
+		}
 		return foundCode
 	}
 
@@ -70,6 +78,8 @@ func (ctx *idaContext) search(state models.GameState, g int) int {
 			childKey := newState.GetKey()
 
 			if !ctx.inPath[childKey] {
+				children = append(children, newState.Pos)
+
 				ctx.path = append(ctx.path, models.MoveRecord{
 					Direction: dir,
 					NewPos:    newState.Pos,
@@ -92,6 +102,14 @@ func (ctx *idaContext) search(state models.GameState, g int) int {
 			}
 		}
 	}
+
+	if len(ctx.searchFrames) < models.MaxSearchFrames {
+		ctx.searchFrames = append(ctx.searchFrames, models.SearchFrame{
+			Current:  state.Pos,
+			Children: children,
+		})
+	}
+
 	ctx.inPath[stateKey] = false
 
 	return minCost

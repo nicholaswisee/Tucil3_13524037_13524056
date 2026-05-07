@@ -45,23 +45,25 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		currNode := heap.Pop(&pq).(*SearchNode)
 		nodesEvaluated++
 
-		searchFrames = append(searchFrames, models.SearchFrame{
-			Current:  currNode.State.Pos,
-			Visited:  extractPositionsFromCostMap(visited),
-			Frontier: extractPositionsFromPQ(pq),
-		})
+		var children []models.Position
 
 		if currNode.State.IsGoal(m) {
-		return &models.SolverResult{
-			Path:         currNode.Path,
-			PathHistory:  currNode.PathHistory,
-			SearchFrames: searchFrames,
-			TotalCost:    currNode.Cost,
-			TimeMs:       time.Since(startTime).Milliseconds(),
-			NodesEval:    nodesEvaluated,
-			Success:      true,
-			Algorithm:    "UCS",
-		}, nil
+			if len(searchFrames) < models.MaxSearchFrames {
+				searchFrames = append(searchFrames, models.SearchFrame{
+					Current:  currNode.State.Pos,
+					Children: children,
+				})
+			}
+			return &models.SolverResult{
+				Path:         currNode.Path,
+				PathHistory:  currNode.PathHistory,
+				SearchFrames: searchFrames,
+				TotalCost:    currNode.Cost,
+				TimeMs:       time.Since(startTime).Milliseconds(),
+				NodesEval:    nodesEvaluated,
+				Success:      true,
+				Algorithm:    "UCS",
+			}, nil
 		}
 
 		if bestCost, exists := visited[currNode.State.GetKey()]; exists && bestCost < currNode.Cost {
@@ -77,6 +79,7 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 
 				if bestCost, exists := visited[stateKey]; !exists || newCost < bestCost {
 					visited[stateKey] = newCost
+					children = append(children, newState.Pos)
 
 					newPath := make([]models.MoveRecord, len(currNode.Path), len(currNode.Path)+1)
 					copy(newPath, currNode.Path)
@@ -95,6 +98,13 @@ func (u *UCSSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 					})
 				}
 			}
+		}
+
+		if len(searchFrames) < models.MaxSearchFrames {
+			searchFrames = append(searchFrames, models.SearchFrame{
+				Current:  currNode.State.Pos,
+				Children: children,
+			})
 		}
 	}
 

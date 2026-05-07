@@ -1,15 +1,16 @@
 package models
 
+const MaxSearchFrames = 5000
+
 type SearchFrame struct {
-	Current  Position
-	Visited  []Position
-	Frontier []Position
+	Current  Position   // node being expanded this step
+	Children []Position // nodes added to frontier by expanding Current
 }
 
 type SolverResult struct {
 	Path         []MoveRecord // urutan gerakan beserta posisi akhir & cost per gerakan
 	PathHistory  []Position   // posisi berhenti setiap step (termasuk posisi awal untuk playback)
-	SearchFrames []SearchFrame // NEW: per-expansion snapshots
+	SearchFrames []SearchFrame // per-expansion snapshots
 	TotalCost    int
 	TimeMs       int64
 	NodesEval    int

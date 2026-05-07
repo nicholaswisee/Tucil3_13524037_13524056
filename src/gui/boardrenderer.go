@@ -18,19 +18,20 @@ import (
 )
 
 var (
-	colBg       = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
-	colWall     = color.NRGBA{R: 59, G: 59, B: 79, A: 255}   // #3B3B4F
-	colPath     = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
-	colLava     = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
-	colStart    = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
-	colGoal     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
-	colNumber   = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
-	colNumberTx = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
-	colPlayer   = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
-	colTrail    = color.NRGBA{R: 209, G: 154, B: 102, A: 153} // #D19A66 @ 60%
-	colVisited  = color.NRGBA{R: 198, G: 120, B: 221, A: 102} // #C678DD @ 40%
-	colFrontier = color.NRGBA{R: 97, G: 175, B: 239, A: 77}   // #61AFEF @ 30%
-	colCurrent  = color.NRGBA{R: 97, G: 175, B: 239, A: 255}  // #61AFEF
+	colBg         = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
+	colWall       = color.NRGBA{R: 59, G: 59, B: 79, A: 255}   // #3B3B4F
+	colPath       = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
+	colLava       = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
+	colStart      = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
+	colGoal       = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumber     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumberTx   = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
+	colPlayer     = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
+	colTrail      = color.NRGBA{R: 209, G: 154, B: 102, A: 153} // #D19A66 @ 60%
+	colTreeEdge   = color.NRGBA{R: 150, G: 150, B: 170, A: 120} // subtle gray for tree edges
+	colVisitedDot = color.NRGBA{R: 200, G: 200, B: 220, A: 180} // light dot for visited
+	colFrontier   = color.NRGBA{R: 97, G: 175, B: 239, A: 200}  // cyan for frontier outline
+	colCurrent    = color.NRGBA{R: 97, G: 175, B: 239, A: 255}  // bright cyan for current
 )
 
 var numberFace font.Face
@@ -107,6 +108,12 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		radius = 0
 	}
 
+	cellCenter := func(p models.Position) (int, int) {
+		x := offsetX + padding + p.Y*(cellSize+padding) + cellSize/2
+		y := offsetY + padding + p.X*(cellSize+padding) + cellSize/2
+		return x, y
+	}
+
 	// 1. Draw all tiles
 	for i := 0; i < m.Height; i++ {
 		for j := 0; j < m.Width; j++ {
@@ -132,39 +139,51 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		}
 	}
 
-	// 2. Search phase overlays
+	// 2. Search phase: draw tree edges + indicators
 	if b.state.SearchPhase && b.state.Result != nil && len(b.state.Result.SearchFrames) > 0 {
+		// Draw tree edges for all frames up to current step
+		for i := 0; i <= b.state.SearchStep && i < len(b.state.Result.SearchFrames); i++ {
+			frame := b.state.Result.SearchFrames[i]
+			px, py := cellCenter(frame.Current)
+			for _, child := range frame.Children {
+				cx, cy := cellCenter(child)
+				drawThinLine(img, px, py, cx, cy, colTreeEdge)
+			}
+		}
+
+		// Draw visited indicator: small light dot in center of each visited cell
+		visited := b.state.VisitedSet()
+		for p := range visited {
+			cx, cy := cellCenter(p)
+			dotR := cellSize / 8
+			if dotR < 1 {
+				dotR = 1
+			}
+			drawCircle(img, cx, cy, dotR, colVisitedDot)
+		}
+
+		// Draw frontier indicator: small hollow cyan circle on each frontier cell
+		frontier := b.state.FrontierSet()
+		for p := range frontier {
+			cx, cy := cellCenter(p)
+			circleR := cellSize / 5
+			if circleR < 2 {
+				circleR = 2
+			}
+			drawCircleOutline(img, cx, cy, circleR, colFrontier)
+		}
+
+		// Draw current node: bright cyan filled circle
 		frame := b.state.Result.SearchFrames[b.state.SearchStep]
-		for _, p := range frame.Visited {
-			x := offsetX + padding + p.Y*(cellSize+padding)
-			y := offsetY + padding + p.X*(cellSize+padding)
-			if radius > 0 {
-				drawRoundedRect(img, x, y, cellSize, cellSize, radius, colVisited)
-			} else {
-				rect := image.Rect(x, y, x+cellSize, y+cellSize)
-				draw.Draw(img, rect, image.NewUniform(colVisited), image.Point{}, draw.Src)
-			}
-		}
-		for _, p := range frame.Frontier {
-			x := offsetX + padding + p.Y*(cellSize+padding)
-			y := offsetY + padding + p.X*(cellSize+padding)
-			if radius > 0 {
-				drawRoundedRect(img, x, y, cellSize, cellSize, radius, colFrontier)
-			} else {
-				rect := image.Rect(x, y, x+cellSize, y+cellSize)
-				draw.Draw(img, rect, image.NewUniform(colFrontier), image.Point{}, draw.Src)
-			}
-		}
-		cx := offsetX + padding + frame.Current.Y*(cellSize+padding) + cellSize/2
-		cy := offsetY + padding + frame.Current.X*(cellSize+padding) + cellSize/2
-		r := cellSize / 2
+		cx, cy := cellCenter(frame.Current)
+		r := cellSize / 3
 		if r < 2 {
 			r = 2
 		}
 		drawCircle(img, cx, cy, r, colCurrent)
 	}
 
-	// 3. Goal star
+	// 3. Goal star (always drawn)
 	goalPos := m.GoalPos
 	gx := offsetX + padding + goalPos.Y*(cellSize+padding) + cellSize/2
 	gy := offsetY + padding + goalPos.X*(cellSize+padding) + cellSize/2
@@ -186,10 +205,8 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 			for s := 1; s <= steps && s < len(history); s++ {
 				p1 := history[s-1]
 				p2 := history[s]
-				cx1 := offsetX + padding + p1.Y*(cellSize+padding) + cellSize/2
-				cy1 := offsetY + padding + p1.X*(cellSize+padding) + cellSize/2
-				cx2 := offsetX + padding + p2.Y*(cellSize+padding) + cellSize/2
-				cy2 := offsetY + padding + p2.X*(cellSize+padding) + cellSize/2
+				cx1, cy1 := cellCenter(p1)
+				cx2, cy2 := cellCenter(p2)
 				drawThickLine(img, cx1, cy1, cx2, cy2, 3, colTrail)
 			}
 		}
@@ -198,8 +215,7 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 	// 5. Player token (solution phase only)
 	if !b.state.SearchPhase {
 		pos := b.state.CurrentPos()
-		cx := offsetX + padding + pos.Y*(cellSize+padding) + cellSize/2
-		cy := offsetY + padding + pos.X*(cellSize+padding) + cellSize/2
+		cx, cy := cellCenter(pos)
 		radiusP := cellSize / 3
 		if radiusP < 2 {
 			radiusP = 2
@@ -300,6 +316,25 @@ func drawCenteredText(img *image.RGBA, s string, cx, cy, fontSize int) {
 	d.DrawString(s)
 }
 
+func drawThinLine(img *image.RGBA, x0, y0, x1, y1 int, col color.Color) {
+	dx := x1 - x0
+	dy := y1 - y0
+	steps := abs(dx)
+	if abs(dy) > steps {
+		steps = abs(dy)
+	}
+	if steps == 0 {
+		img.Set(x0, y0, col)
+		return
+	}
+	for i := 0; i <= steps; i++ {
+		t := float64(i) / float64(steps)
+		x := x0 + int(float64(dx)*t)
+		y := y0 + int(float64(dy)*t)
+		img.Set(x, y, col)
+	}
+}
+
 func drawThickLine(img *image.RGBA, x0, y0, x1, y1, thickness int, col color.Color) {
 	dx := x1 - x0
 	dy := y1 - y0
@@ -319,36 +354,6 @@ func drawThickLine(img *image.RGBA, x0, y0, x1, y1, thickness int, col color.Col
 	}
 }
 
-func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col color.Color) {
-	dx := abs(x1 - x0)
-	dy := abs(y1 - y0)
-	sx := 1
-	sy := 1
-	if x0 >= x1 {
-		sx = -1
-	}
-	if y0 >= y1 {
-		sy = -1
-	}
-	err := dx - dy
-
-	for {
-		img.Set(x0, y0, col)
-		if x0 == x1 && y0 == y1 {
-			break
-		}
-		e2 := 2 * err
-		if e2 > -dy {
-			err -= dy
-			x0 += sx
-		}
-		if e2 < dx {
-			err += dx
-			y0 += sy
-		}
-	}
-}
-
 func drawCircle(img *image.RGBA, cx, cy, r int, col color.Color) {
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
@@ -363,7 +368,7 @@ func drawCircleOutline(img *image.RGBA, cx, cy, r int, col color.Color) {
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
 			d2 := x*x + y*y
-			if d2 <= r*r && d2 > (r-2)*(r-2) {
+			if d2 <= r*r && d2 > (r-1)*(r-1) {
 				img.Set(cx+x, cy+y, col)
 			}
 		}

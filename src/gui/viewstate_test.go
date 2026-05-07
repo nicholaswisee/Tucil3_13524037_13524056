@@ -54,9 +54,9 @@ func TestViewState_SearchPlayback(t *testing.T) {
 	vs.Result = &models.SolverResult{
 		Success: true,
 		SearchFrames: []models.SearchFrame{
-			{Current: models.Position{X: 0, Y: 0}, Visited: []models.Position{{X: 0, Y: 0}}, Frontier: []models.Position{{X: 0, Y: 1}}},
-			{Current: models.Position{X: 0, Y: 1}, Visited: []models.Position{{X: 0, Y: 0}, {X: 0, Y: 1}}, Frontier: []models.Position{{X: 1, Y: 1}}},
-			{Current: models.Position{X: 1, Y: 1}, Visited: []models.Position{{X: 0, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}}, Frontier: []models.Position{}},
+			{Current: models.Position{X: 0, Y: 0}, Children: []models.Position{{X: 0, Y: 1}}},
+			{Current: models.Position{X: 0, Y: 1}, Children: []models.Position{{X: 1, Y: 1}}},
+			{Current: models.Position{X: 1, Y: 1}, Children: []models.Position{}},
 		},
 		PathHistory: []models.Position{{X: 0, Y: 0}, {X: 1, Y: 1}},
 	}
@@ -69,11 +69,30 @@ func TestViewState_SearchPlayback(t *testing.T) {
 		t.Errorf("expected SearchStep 0, got %d", vs.SearchStep)
 	}
 
+	// After applying frame 0: visited={0,0}, frontier={0,1}
+	if !vs.VisitedSet()[models.Position{X: 0, Y: 0}] {
+		t.Error("expected (0,0) to be visited after SetResult")
+	}
+	if !vs.FrontierSet()[models.Position{X: 0, Y: 1}] {
+		t.Error("expected (0,1) to be in frontier after SetResult")
+	}
+
 	if !vs.SearchForward() {
 		t.Error("expected SearchForward to succeed")
 	}
 	if vs.SearchStep != 1 {
 		t.Errorf("expected SearchStep 1, got %d", vs.SearchStep)
+	}
+
+	// After applying frame 1: visited={0,0; 0,1}, frontier={1,1}
+	if !vs.VisitedSet()[models.Position{X: 0, Y: 1}] {
+		t.Error("expected (0,1) to be visited after SearchForward")
+	}
+	if !vs.FrontierSet()[models.Position{X: 1, Y: 1}] {
+		t.Error("expected (1,1) to be in frontier after SearchForward")
+	}
+	if vs.FrontierSet()[models.Position{X: 0, Y: 1}] {
+		t.Error("expected (0,1) to NOT be in frontier after being visited")
 	}
 
 	pos := vs.CurrentPos()

@@ -35,7 +35,7 @@ func TestBoardRenderer_DrawWithMap(t *testing.T) {
 		Height: 3, Width: 3,
 		Grid:      [][]rune{{'X', '*', 'Z'}, {'*', 'O', '*'}, {'1', 'L', '*'}},
 		TileTypes: [][]models.TileType{{models.TileWall, models.TilePath, models.TileStart}, {models.TilePath, models.TileGoal, models.TilePath}, {models.TileNumber, models.TileLava, models.TilePath}},
-		StartPos: models.Position{X: 0, Y: 2},
+		StartPos:  models.Position{X: 0, Y: 2},
 	}
 	br := NewBoardRenderer(state)
 	img := br.draw(200, 200)
@@ -55,10 +55,11 @@ func TestBoardRenderer_DrawSearchPhase(t *testing.T) {
 	state.Result = &models.SolverResult{
 		Success: true,
 		SearchFrames: []models.SearchFrame{
-			{Current: models.Position{X: 1, Y: 1}, Visited: []models.Position{{X: 0, Y: 0}}, Frontier: []models.Position{{X: 0, Y: 1}, {X: 1, Y: 0}}},
+			{Current: models.Position{X: 0, Y: 0}, Children: []models.Position{{X: 0, Y: 1}, {X: 1, Y: 0}}},
 		},
 	}
 	state.SearchPhase = true
+	state.rebuildAccumulatedSets()
 	br := NewBoardRenderer(state)
 	img := br.draw(200, 200)
 	if img == nil {

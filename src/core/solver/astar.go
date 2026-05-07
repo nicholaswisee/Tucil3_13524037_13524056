@@ -55,23 +55,25 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		currNode := heap.Pop(&pq).(*SearchNode)
 		nodesEvaluated++
 
-		searchFrames = append(searchFrames, models.SearchFrame{
-			Current:  currNode.State.Pos,
-			Visited:  extractPositionsFromCostMap(visited),
-			Frontier: extractPositionsFromPQ(pq),
-		})
+		var children []models.Position
 
 		if currNode.State.IsGoal(m) {
-		return &models.SolverResult{
-			Path:         currNode.Path,
-			PathHistory:  currNode.PathHistory,
-			SearchFrames: searchFrames,
-			TotalCost:    currNode.Cost,
-			TimeMs:       time.Since(startTime).Milliseconds(),
-			NodesEval:    nodesEvaluated,
-			Success:      true,
-			Algorithm:    "A*",
-		}, nil
+			if len(searchFrames) < models.MaxSearchFrames {
+				searchFrames = append(searchFrames, models.SearchFrame{
+					Current:  currNode.State.Pos,
+					Children: children,
+				})
+			}
+			return &models.SolverResult{
+				Path:         currNode.Path,
+				PathHistory:  currNode.PathHistory,
+				SearchFrames: searchFrames,
+				TotalCost:    currNode.Cost,
+				TimeMs:       time.Since(startTime).Milliseconds(),
+				NodesEval:    nodesEvaluated,
+				Success:      true,
+				Algorithm:    "A*",
+			}, nil
 		}
 
 		if bestCost, exists := visited[currNode.State.GetKey()]; exists && bestCost < currNode.Cost {
@@ -85,8 +87,10 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 				newGCost := currNode.Cost + moveCost
 				stateKey := newState.GetKey()
 
-				if bestCost, exists := visited[stateKey]; !exists || newGCost > bestCost {
+				// FIXED: was '>' (worse cost), now '<' (better cost)
+				if bestCost, exists := visited[stateKey]; !exists || newGCost < bestCost {
 					visited[stateKey] = newGCost
+					children = append(children, newState.Pos)
 
 					hCost := a.getH(&newState, m)
 					fCost := newGCost + hCost
@@ -108,6 +112,13 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 					})
 				}
 			}
+		}
+
+		if len(searchFrames) < models.MaxSearchFrames {
+			searchFrames = append(searchFrames, models.SearchFrame{
+				Current:  currNode.State.Pos,
+				Children: children,
+			})
 		}
 	}
 

@@ -6,8 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-
-	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 )
 
 type LeftPanel struct {
@@ -116,9 +114,16 @@ func (lp *LeftPanel) SetSearchStats(totalSteps, currentStep, visitedCount int) {
 	lp.FrontierLabel.SetText(fmt.Sprintf("Frontier: %d", 0))
 }
 
-func (lp *LeftPanel) SetSearchFrameStats(frame models.SearchFrame) {
-	lp.VisitedLabel.SetText(fmt.Sprintf("Visited: %d", len(frame.Visited)))
-	lp.FrontierLabel.SetText(fmt.Sprintf("Frontier: %d", len(frame.Frontier)))
+func (lp *LeftPanel) SetSearchStatsFromState(vs *ViewState) {
+	if vs.Result == nil || len(vs.Result.SearchFrames) == 0 {
+		lp.VisitedLabel.SetText("Visited: -")
+		lp.FrontierLabel.SetText("Frontier: -")
+		return
+	}
+	visited := vs.VisitedSet()
+	frontier := vs.FrontierSet()
+	lp.VisitedLabel.SetText(fmt.Sprintf("Visited: %d", len(visited)))
+	lp.FrontierLabel.SetText(fmt.Sprintf("Frontier: %d", len(frontier)))
 }
 
 func (lp *LeftPanel) SetSolution(solution string) {
