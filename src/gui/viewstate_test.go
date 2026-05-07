@@ -47,3 +47,68 @@ func TestViewState_Playback(t *testing.T) {
 		t.Error("expected StepBackward to fail at step 0")
 	}
 }
+
+func TestViewState_SearchPlayback(t *testing.T) {
+	vs := NewViewState()
+	vs.MapData = &models.MapData{Height: 2, Width: 2, StartPos: models.Position{X: 0, Y: 0}}
+	vs.Result = &models.SolverResult{
+		Success: true,
+		SearchFrames: []models.SearchFrame{
+			{Current: models.Position{X: 0, Y: 0}, Visited: []models.Position{{X: 0, Y: 0}}, Frontier: []models.Position{{X: 0, Y: 1}}},
+			{Current: models.Position{X: 0, Y: 1}, Visited: []models.Position{{X: 0, Y: 0}, {X: 0, Y: 1}}, Frontier: []models.Position{{X: 1, Y: 1}}},
+			{Current: models.Position{X: 1, Y: 1}, Visited: []models.Position{{X: 0, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}}, Frontier: []models.Position{}},
+		},
+		PathHistory: []models.Position{{X: 0, Y: 0}, {X: 1, Y: 1}},
+	}
+
+	vs.SetResult(vs.Result)
+	if !vs.SearchPhase {
+		t.Error("expected SearchPhase to be true after SetResult")
+	}
+	if vs.SearchStep != 0 {
+		t.Errorf("expected SearchStep 0, got %d", vs.SearchStep)
+	}
+
+	if !vs.SearchForward() {
+		t.Error("expected SearchForward to succeed")
+	}
+	if vs.SearchStep != 1 {
+		t.Errorf("expected SearchStep 1, got %d", vs.SearchStep)
+	}
+
+	pos := vs.CurrentPos()
+	if pos != (models.Position{X: 0, Y: 1}) {
+		t.Errorf("expected current pos {0,1}, got %+v", pos)
+	}
+
+	vs.TogglePhase()
+	if vs.SearchPhase {
+		t.Error("expected SearchPhase to be false after TogglePhase")
+	}
+	if vs.CurrentStep != 0 {
+		t.Errorf("expected CurrentStep 0 after toggle, got %d", vs.CurrentStep)
+	}
+
+	vs.TogglePhase()
+	if !vs.SearchPhase {
+		t.Error("expected SearchPhase to be true after second toggle")
+	}
+	if vs.SearchStep != 1 {
+		t.Errorf("expected SearchStep restored to 1, got %d", vs.SearchStep)
+	}
+
+	vs.JumpToSearchEnd()
+	if vs.SearchStep != 2 {
+		t.Errorf("expected SearchStep 2, got %d", vs.SearchStep)
+	}
+
+	vs.SearchBackward()
+	if vs.SearchStep != 1 {
+		t.Errorf("expected SearchStep 1, got %d", vs.SearchStep)
+	}
+
+	vs.JumpToSearchStart()
+	if vs.SearchStep != 0 {
+		t.Errorf("expected SearchStep 0, got %d", vs.SearchStep)
+	}
+}
