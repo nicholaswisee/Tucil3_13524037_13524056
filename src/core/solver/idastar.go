@@ -28,17 +28,24 @@ const foundCode = -1
 
 // memori global biar ga allocate memori baru terus pas rekursi
 type idaContext struct {
-	m         *models.MapData
-	getH      func(*models.GameState, *models.MapData) int
-	path      []models.MoveRecord
-	history   []models.Position
-	inPath    map[models.StateKey]bool
-	threshold int
-	nodesEval int
+	m            *models.MapData
+	getH         func(*models.GameState, *models.MapData) int
+	path         []models.MoveRecord
+	history      []models.Position
+	inPath       map[models.StateKey]bool
+	threshold    int
+	nodesEval    int
+	searchFrames []models.SearchFrame
 }
 
 func (ctx *idaContext) search(state models.GameState, g int) int {
 	ctx.nodesEval++
+
+	ctx.searchFrames = append(ctx.searchFrames, models.SearchFrame{
+		Current:  state.Pos,
+		Visited:  extractPositionsFromMap(ctx.inPath),
+		Frontier: []models.Position{},
+	})
 
 	h := ctx.getH(&state, ctx.m)
 	f := g + h
@@ -100,11 +107,12 @@ func (i *IDAStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 	initState := models.GameState{Pos: m.StartPos, NextNum: startNum}
 
 	ctx := &idaContext{
-		m:       m,
-		getH:    i.getH,
-		path:    make([]models.MoveRecord, 0, 100),
-		history: make([]models.Position, 0, 100),
-		inPath:  make(map[models.StateKey]bool),
+		m:            m,
+		getH:         i.getH,
+		path:         make([]models.MoveRecord, 0, 100),
+		history:      make([]models.Position, 0, 100),
+		inPath:       make(map[models.StateKey]bool),
+		searchFrames: make([]models.SearchFrame, 0, 1000),
 	}
 
 	ctx.history = append(ctx.history, m.StartPos)
@@ -126,13 +134,14 @@ func (i *IDAStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 			}
 
 			return &models.SolverResult{
-				Path:        finalPath,
-				PathHistory: finalHistory,
-				TotalCost:   totalCost,
-				TimeMs:      time.Since(startTime).Milliseconds(),
-				NodesEval:   ctx.nodesEval,
-				Success:     true,
-				Algorithm:   "IDA*",
+				Path:         finalPath,
+				PathHistory:  finalHistory,
+				SearchFrames: ctx.searchFrames,
+				TotalCost:    totalCost,
+				TimeMs:       time.Since(startTime).Milliseconds(),
+				NodesEval:    ctx.nodesEval,
+				Success:      true,
+				Algorithm:    "IDA*",
 			}, nil
 		}
 		if res == math.MaxInt {
@@ -143,9 +152,10 @@ func (i *IDAStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 	}
 
 	return &models.SolverResult{
-		Success:   false,
-		TimeMs:    time.Since(startTime).Milliseconds(),
-		NodesEval: ctx.nodesEval,
-		Algorithm: "IDA*",
+		Success:      false,
+		TimeMs:       time.Since(startTime).Milliseconds(),
+		NodesEval:    ctx.nodesEval,
+		Algorithm:    "IDA*",
+		SearchFrames: ctx.searchFrames,
 	}, nil
 }
