@@ -116,3 +116,37 @@ func TestLeftPanel_SetNoSolution(t *testing.T) {
 		t.Errorf("unexpected solution label: %s", lp.SolutionLabel.Text)
 	}
 }
+
+func TestLeftPanel_PhaseToggle(t *testing.T) {
+	testApp := test.NewApp()
+	defer testApp.Quit()
+	lp := NewLeftPanel()
+	if lp.PhaseToggleBtn == nil {
+		t.Fatal("PhaseToggleBtn is nil")
+	}
+	if lp.SearchStepLabel == nil {
+		t.Fatal("SearchStepLabel is nil")
+	}
+	if lp.VisitedLabel == nil {
+		t.Fatal("VisitedLabel is nil")
+	}
+	if lp.FrontierLabel == nil {
+		t.Fatal("FrontierLabel is nil")
+	}
+}
+
+func TestLeftPanel_SetSearchStats(t *testing.T) {
+	testApp := test.NewApp()
+	defer testApp.Quit()
+	lp := NewLeftPanel()
+	lp.SetSearchStats(100, 42, 7)
+	if lp.SearchStepLabel.Text != "Search Step 42 / 100" {
+		t.Errorf("unexpected search step label: %s", lp.SearchStepLabel.Text)
+	}
+	if lp.VisitedLabel.Text != "Visited: 7" {
+		t.Errorf("unexpected visited label: %s", lp.VisitedLabel.Text)
+	}
+	if lp.FrontierLabel.Text != "Frontier: 0" {
+		t.Errorf("unexpected frontier label: %s", lp.FrontierLabel.Text)
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/nicholaswisee/Tucil3_13524037_13524056/core/models"
 )
 
 type LeftPanel struct {
@@ -20,11 +22,15 @@ type LeftPanel struct {
 	PrevStepBtn     *widget.Button
 	NextStepBtn     *widget.Button
 	LastStepBtn     *widget.Button
+	PhaseToggleBtn  *widget.Button
 	StepLabel       *widget.Label
+	SearchStepLabel *widget.Label
 	SolutionLabel   *widget.Label
 	CostLabel       *widget.Label
 	TimeLabel       *widget.Label
 	IterationsLabel *widget.Label
+	VisitedLabel    *widget.Label
+	FrontierLabel   *widget.Label
 }
 
 func NewLeftPanel() *LeftPanel {
@@ -46,11 +52,16 @@ func NewLeftPanel() *LeftPanel {
 	lp.NextStepBtn = widget.NewButton(">", func() {})
 	lp.LastStepBtn = widget.NewButton(">|", func() {})
 
+	lp.PhaseToggleBtn = widget.NewButton("Show Solution", func() {})
+
 	lp.StepLabel = widget.NewLabel("Step 0 / 0")
+	lp.SearchStepLabel = widget.NewLabel("Search Step 0 / 0")
 	lp.SolutionLabel = widget.NewLabel("Solusi: -")
 	lp.CostLabel = widget.NewLabel("Cost: -")
 	lp.TimeLabel = widget.NewLabel("Waktu eksekusi: -")
 	lp.IterationsLabel = widget.NewLabel("Banyak iterasi: -")
+	lp.VisitedLabel = widget.NewLabel("Visited: -")
+	lp.FrontierLabel = widget.NewLabel("Frontier: -")
 
 	playbackRow := container.NewHBox(lp.FirstStepBtn, lp.PrevStepBtn, lp.NextStepBtn, lp.LastStepBtn, lp.StepLabel)
 
@@ -65,14 +76,18 @@ func NewLeftPanel() *LeftPanel {
 		widget.NewSeparator(),
 		lp.RunBtn,
 		widget.NewSeparator(),
+		lp.PhaseToggleBtn,
 		widget.NewLabel("Playback"),
 		playbackRow,
+		lp.SearchStepLabel,
 		widget.NewSeparator(),
 		widget.NewLabel("Stats"),
 		lp.SolutionLabel,
 		lp.CostLabel,
 		lp.TimeLabel,
 		lp.IterationsLabel,
+		lp.VisitedLabel,
+		lp.FrontierLabel,
 	)
 
 	return lp
@@ -89,6 +104,21 @@ func (lp *LeftPanel) SetStats(timeMs int64, iterations int) {
 
 func (lp *LeftPanel) SetStepLabel(current, total int) {
 	lp.StepLabel.SetText(fmt.Sprintf("Step %d / %d", current, total))
+}
+
+func (lp *LeftPanel) SetSearchStepLabel(current, total int) {
+	lp.SearchStepLabel.SetText(fmt.Sprintf("Search Step %d / %d", current, total))
+}
+
+func (lp *LeftPanel) SetSearchStats(totalSteps, currentStep, visitedCount int) {
+	lp.SetSearchStepLabel(currentStep, totalSteps)
+	lp.VisitedLabel.SetText(fmt.Sprintf("Visited: %d", visitedCount))
+	lp.FrontierLabel.SetText(fmt.Sprintf("Frontier: %d", 0))
+}
+
+func (lp *LeftPanel) SetSearchFrameStats(frame models.SearchFrame) {
+	lp.VisitedLabel.SetText(fmt.Sprintf("Visited: %d", len(frame.Visited)))
+	lp.FrontierLabel.SetText(fmt.Sprintf("Frontier: %d", len(frame.Frontier)))
 }
 
 func (lp *LeftPanel) SetSolution(solution string) {
@@ -111,5 +141,13 @@ func (lp *LeftPanel) SetHeuristicEnabled(enabled bool) {
 		lp.HeuristicSelect.Enable()
 	} else {
 		lp.HeuristicSelect.Disable()
+	}
+}
+
+func (lp *LeftPanel) SetPhaseToggleLabel(searchPhase bool) {
+	if searchPhase {
+		lp.PhaseToggleBtn.SetText("Show Solution")
+	} else {
+		lp.PhaseToggleBtn.SetText("Show Search")
 	}
 }
