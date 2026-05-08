@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 	"math"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -19,22 +20,23 @@ import (
 
 var (
 	colBg       = color.NRGBA{R: 30, G: 30, B: 46, A: 255}    // #1E1E2E
-	colWall     = color.NRGBA{R: 59, G: 59, B: 79, A: 255}    // #3B3B4F
+	colWall     = color.NRGBA{R: 60, G: 60, B: 70, A: 255}    // wall fill
+	colWallBdr  = color.NRGBA{R: 100, G: 100, B: 110, A: 255} // wall border
 	colPath     = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
-	colLava     = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
 	colStart    = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
 	colGoal     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
-	colNumber   = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumber   = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // checkpoint yellow
+	colNumPast  = color.NRGBA{R: 34, G: 197, B: 94, A: 255}   // checkpoint green (passed)
 	colNumberTx = color.NRGBA{R: 30, G: 30, B: 46, A: 255}    // #1E1E2E
 	colPlayer   = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
 
-	// WARNA ANIMASI PATH
-	colTrail       = color.NRGBA{R: 209, G: 154, B: 102, A: 190} // Oranye untuk Solusi Akhir
-	colSearchTrail = color.NRGBA{R: 198, G: 120, B: 221, A: 160} // Ungu untuk Penelusuran Sementara
+	colTrail       = color.NRGBA{R: 209, G: 154, B: 102, A: 190} // orange solution path
+	colSearchTrail = color.NRGBA{R: 198, G: 120, B: 221, A: 160} // purple search path
 
-	colVisitedDot = color.NRGBA{R: 200, G: 200, B: 220, A: 180} // light dot for visited
-	colFrontier   = color.NRGBA{R: 97, G: 175, B: 239, A: 200}  // cyan for frontier outline
-	colCurrent    = color.NRGBA{R: 97, G: 175, B: 239, A: 255}  // bright cyan for current
+	colVisitedDot = color.NRGBA{R: 200, G: 200, B: 220, A: 180}
+	colFrontier   = color.NRGBA{R: 97, G: 175, B: 239, A: 200}
+	colCurrent    = color.NRGBA{R: 97, G: 175, B: 239, A: 255}
+	colVisitedOvl = color.NRGBA{R: 0, G: 0, B: 30, A: 60} // dark overlay for visited tiles
 )
 
 var numberFace font.Face
@@ -55,12 +57,35 @@ type BoardRenderer struct {
 	state  *ViewState
 	raster *canvas.Raster
 	obj    fyne.CanvasObject
+
+	animFracRow float64
+	animFracCol float64
+	animating   bool
+	currentAnim *fyne.Animation
+
+	lavaAlpha uint8
+	lavaAnim  *fyne.Animation
+
+	OnAnimStart func()
+	OnAnimEnd   func()
 }
 
 func NewBoardRenderer(state *ViewState) *BoardRenderer {
-	b := &BoardRenderer{state: state}
+	b := &BoardRenderer{
+		state:     state,
+		lavaAlpha: 255,
+	}
 	b.raster = canvas.NewRaster(b.draw)
 	b.obj = container.NewMax(b.raster)
+
+	b.lavaAnim = fyne.NewAnimation(time.Second, func(f float32) {
+		b.lavaAlpha = uint8(255 - int(75*f))
+		b.raster.Refresh()
+	})
+	b.lavaAnim.RepeatCount = fyne.AnimationRepeatForever
+	b.lavaAnim.AutoReverse = true
+	b.lavaAnim.Start()
+
 	return b
 }
 
@@ -70,6 +95,72 @@ func (b *BoardRenderer) Object() fyne.CanvasObject {
 
 func (b *BoardRenderer) Refresh() {
 	b.raster.Refresh()
+}
+
+func (b *BoardRenderer) AnimateSlide(positions []models.Position, duration time.Duration, onComplete func()) {
+	if b.currentAnim != nil {
+		b.currentAnim.Stop()
+		b.currentAnim = nil
+	}
+	n := len(positions)
+	if n < 2 {
+		b.animating = false
+		if onComplete != nil {
+			onComplete()
+		}
+		return
+	}
+
+	b.animating = true
+	b.animFracRow = float64(positions[0].X)
+	b.animFracCol = float64(positions[0].Y)
+
+	if b.OnAnimStart != nil {
+		b.OnAnimStart()
+	}
+
+	total := float64(n - 1)
+	b.currentAnim = fyne.NewAnimation(duration, func(f float32) {
+		ft := float64(f) * total
+		idx := int(ft)
+		if idx >= n-1 {
+			idx = n - 2
+		}
+		frac := ft - float64(idx)
+		r1 := float64(positions[idx].X)
+		c1 := float64(positions[idx].Y)
+		r2 := float64(positions[idx+1].X)
+		c2 := float64(positions[idx+1].Y)
+		b.animFracRow = r1 + frac*(r2-r1)
+		b.animFracCol = c1 + frac*(c2-c1)
+		b.raster.Refresh()
+	})
+	b.currentAnim.Curve = fyne.AnimationEaseInOut
+	b.currentAnim.Start()
+
+	go func() {
+		time.Sleep(duration + 20*time.Millisecond)
+		b.animating = false
+		b.animFracRow = float64(positions[n-1].X)
+		b.animFracCol = float64(positions[n-1].Y)
+		fyne.Do(func() {
+			if b.OnAnimEnd != nil {
+				b.OnAnimEnd()
+			}
+			if onComplete != nil {
+				onComplete()
+			}
+			b.raster.Refresh()
+		})
+	}()
+}
+
+func (b *BoardRenderer) StopAnimation() {
+	if b.currentAnim != nil {
+		b.currentAnim.Stop()
+		b.currentAnim = nil
+	}
+	b.animating = false
 }
 
 func (b *BoardRenderer) draw(w, h int) image.Image {
@@ -117,18 +208,43 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		return x, y
 	}
 
+	fracCenter := func(row, col float64) (int, int) {
+		x := float64(offsetX+padding) + col*(float64(cellSize)+float64(padding)) + float64(cellSize)/2
+		y := float64(offsetY+padding) + row*(float64(cellSize)+float64(padding)) + float64(cellSize)/2
+		return int(x), int(y)
+	}
+
+	var visited map[models.Position]bool
+	var checkpointsPassed map[int]bool
+	if b.state.SearchPhase {
+		visited = b.state.VisitedSet()
+	} else {
+		checkpointsPassed = b.state.CheckpointsPassed()
+	}
+
 	// 1. Draw all tiles
 	for i := 0; i < m.Height; i++ {
 		for j := 0; j < m.Width; j++ {
 			x := offsetX + padding + j*(cellSize+padding)
 			y := offsetY + padding + i*(cellSize+padding)
-			tile := m.TileAt(models.Position{X: i, Y: j})
-			col := tileColor(tile)
+			pos := models.Position{X: i, Y: j}
+			tile := m.TileAt(pos)
+
+			col := b.tileColorAnimated(tile, pos, checkpointsPassed)
+
+			if b.state.SearchPhase && visited != nil && visited[pos] {
+				col = blendNRGBA(col, colVisitedOvl)
+			}
+
 			if radius > 0 {
 				drawRoundedRect(img, x, y, cellSize, cellSize, radius, col)
 			} else {
 				rect := image.Rect(x, y, x+cellSize, y+cellSize)
 				draw.Draw(img, rect, image.NewUniform(col), image.Point{}, draw.Src)
+			}
+
+			if tile == models.TileWall && cellSize >= 6 {
+				drawRectBorder(img, x, y, cellSize, cellSize, 2, colWallBdr)
 			}
 
 			if tile == models.TileNumber {
@@ -142,21 +258,9 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		}
 	}
 
-	// 2. FASE PENCARIAN (SEARCH PHASE)
+	// 2. SEARCH PHASE
 	if b.state.SearchPhase && b.state.Result != nil && len(b.state.Result.SearchFrames) > 0 {
 
-		// Draw visited indicator
-		visited := b.state.VisitedSet()
-		for p := range visited {
-			cx, cy := cellCenter(p)
-			dotR := cellSize / 8
-			if dotR < 1 {
-				dotR = 1
-			}
-			drawCircle(img, cx, cy, dotR, colVisitedDot)
-		}
-
-		// Draw frontier indicator
 		frontier := b.state.FrontierSet()
 		for p := range frontier {
 			cx, cy := cellCenter(p)
@@ -167,10 +271,17 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 			drawCircleOutline(img, cx, cy, circleR, colFrontier)
 		}
 
-		// Ambil frame pencarian saat ini
+		for p := range visited {
+			cx, cy := cellCenter(p)
+			dotR := cellSize / 8
+			if dotR < 1 {
+				dotR = 1
+			}
+			drawCircle(img, cx, cy, dotR, colVisitedDot)
+		}
+
 		frame := b.state.Result.SearchFrames[b.state.SearchStep]
 
-		// NEW LOGIC: Gambar Path Eksplorasi Khusus Iterasi Ini (Warna Ungu, Tipis)
 		if len(frame.PathToNode) > 1 {
 			for s := 1; s < len(frame.PathToNode); s++ {
 				p1 := frame.PathToNode[s-1]
@@ -178,10 +289,10 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 				cx1, cy1 := cellCenter(p1)
 				cx2, cy2 := cellCenter(p2)
 				drawThickLine(img, cx1, cy1, cx2, cy2, 2, colSearchTrail)
+				drawArrowhead(img, cx1, cy1, cx2, cy2, 8, colSearchTrail)
 			}
 		}
 
-		// Draw current node (Sorot titik yang sedang dipertimbangkan)
 		cx, cy := cellCenter(frame.Current)
 		r := cellSize / 3
 		if r < 2 {
@@ -204,7 +315,7 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 	}
 	drawStar(img, gx, gy, starOuter, starInner, colGoal)
 
-	// 4. FASE SOLUSI FINAL (SOLUTION PHASE)
+	// 4. SOLUTION PHASE path
 	if !b.state.SearchPhase && b.state.Result != nil && b.state.Result.Success {
 		history := b.state.Result.PathHistory
 		steps := b.state.CurrentStep
@@ -214,26 +325,68 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 				p2 := history[s]
 				cx1, cy1 := cellCenter(p1)
 				cx2, cy2 := cellCenter(p2)
-				// Ketebalan dinaikkan menjadi 4 dan warna menggunakan colTrail
 				drawThickLine(img, cx1, cy1, cx2, cy2, 4, colTrail)
+				drawArrowhead(img, cx1, cy1, cx2, cy2, 10, colTrail)
 			}
 		}
 	}
 
-	// 5. Player token (solution phase only)
+	// 5. Player token (solution phase)
 	if !b.state.SearchPhase {
-		pos := b.state.CurrentPos()
-		cx, cy := cellCenter(pos)
+		var pcx, pcy int
+		if b.animating {
+			pcx, pcy = fracCenter(b.animFracRow, b.animFracCol)
+		} else {
+			pos := b.state.CurrentPos()
+			pcx, pcy = cellCenter(pos)
+		}
 		radiusP := cellSize / 3
 		if radiusP < 2 {
 			radiusP = 2
 		}
-		drawCircle(img, cx, cy, radiusP, colPlayer)
+		drawCircle(img, pcx, pcy, radiusP, colPlayer)
 		outlineColor := color.NRGBA{R: 229, G: 192, B: 123, A: 255}
-		drawCircleOutline(img, cx, cy, radiusP+2, outlineColor)
+		drawCircleOutline(img, pcx, pcy, radiusP+2, outlineColor)
 	}
 
 	return img
+}
+
+func (b *BoardRenderer) tileColorAnimated(t models.TileType, pos models.Position, checkpointsPassed map[int]bool) color.NRGBA {
+	switch t {
+	case models.TileWall:
+		return colWall
+	case models.TilePath:
+		return colPath
+	case models.TileLava:
+		return color.NRGBA{R: 220, G: 60, B: 60, A: b.lavaAlpha}
+	case models.TileStart:
+		return colStart
+	case models.TileGoal:
+		return colPath
+	case models.TileNumber:
+		if checkpointsPassed != nil {
+			m := b.state.MapData
+			if m != nil {
+				numIdx := int(m.Grid[pos.X][pos.Y] - '0')
+				if checkpointsPassed[numIdx] {
+					return colNumPast // green badge
+				}
+			}
+		}
+		return colNumber
+	}
+	return colPath
+}
+
+func blendNRGBA(base, overlay color.NRGBA) color.NRGBA {
+	a := float64(overlay.A) / 255.0
+	return color.NRGBA{
+		R: uint8(float64(overlay.R)*a + float64(base.R)*(1-a)),
+		G: uint8(float64(overlay.G)*a + float64(base.G)*(1-a)),
+		B: uint8(float64(overlay.B)*a + float64(base.B)*(1-a)),
+		A: base.A,
+	}
 }
 
 func tileColor(t models.TileType) color.Color {
@@ -243,7 +396,7 @@ func tileColor(t models.TileType) color.Color {
 	case models.TilePath:
 		return colPath
 	case models.TileLava:
-		return colLava
+		return color.NRGBA{R: 220, G: 60, B: 60, A: 255}
 	case models.TileStart:
 		return colStart
 	case models.TileGoal:
@@ -287,6 +440,29 @@ func drawRoundedRect(img *image.RGBA, x, y, w, h, r int, col color.Color) {
 				}
 			}
 			img.Set(px, py, col)
+		}
+	}
+}
+
+func drawRectBorder(img *image.RGBA, x, y, w, h, bw int, col color.Color) {
+	for dy := 0; dy < bw && dy < h; dy++ {
+		for dx := 0; dx < w; dx++ {
+			img.Set(x+dx, y+dy, col)
+		}
+	}
+	for dy := h - bw; dy < h; dy++ {
+		for dx := 0; dx < w; dx++ {
+			img.Set(x+dx, y+dy, col)
+		}
+	}
+	for dy := bw; dy < h-bw; dy++ {
+		for dx := 0; dx < bw && dx < w; dx++ {
+			img.Set(x+dx, y+dy, col)
+		}
+	}
+	for dy := bw; dy < h-bw; dy++ {
+		for dx := w - bw; dx < w; dx++ {
+			img.Set(x+dx, y+dy, col)
 		}
 	}
 }
@@ -360,6 +536,28 @@ func drawThickLine(img *image.RGBA, x0, y0, x1, y1, thickness int, col color.Col
 		y := y0 + int(float64(dy)*t)
 		drawCircle(img, x, y, thickness/2, col)
 	}
+}
+
+func drawArrowhead(img *image.RGBA, x0, y0, x1, y1, size int, col color.Color) {
+	dx := float64(x1 - x0)
+	dy := float64(y1 - y0)
+	length := math.Sqrt(dx*dx + dy*dy)
+	if length < 1 {
+		return
+	}
+	ux := dx / length
+	uy := dy / length
+
+	cos30 := math.Cos(math.Pi / 6)
+	sin30 := math.Sin(math.Pi / 6)
+
+	lx := float64(x1) + float64(size)*(-ux*cos30+uy*sin30)
+	ly := float64(y1) + float64(size)*(-ux*sin30-uy*cos30)
+	rx := float64(x1) + float64(size)*(-ux*cos30-uy*sin30)
+	ry := float64(y1) + float64(size)*(ux*sin30-uy*cos30)
+
+	drawThickLine(img, x1, y1, int(lx), int(ly), 2, col)
+	drawThickLine(img, x1, y1, int(rx), int(ry), 2, col)
 }
 
 func drawCircle(img *image.RGBA, cx, cy, r int, col color.Color) {

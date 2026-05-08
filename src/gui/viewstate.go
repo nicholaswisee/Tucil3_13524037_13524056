@@ -143,3 +143,84 @@ func (vs *ViewState) VisitedSet() map[models.Position]bool {
 func (vs *ViewState) FrontierSet() map[models.Position]bool {
 	return vs.accumulatedFrontier
 }
+
+func slidePositions(from, to models.Position) []models.Position {
+	if from == to {
+		return nil
+	}
+	var dr, dc int
+	if to.X > from.X {
+		dr = 1
+	} else if to.X < from.X {
+		dr = -1
+	}
+	if to.Y > from.Y {
+		dc = 1
+	} else if to.Y < from.Y {
+		dc = -1
+	}
+	var positions []models.Position
+	curr := from
+	for curr != to {
+		curr.X += dr
+		curr.Y += dc
+		positions = append(positions, curr)
+	}
+	return positions
+}
+
+func (vs *ViewState) JumpToStep(step int) {
+	if vs.Result == nil || !vs.Result.Success {
+		return
+	}
+	maxStep := len(vs.Result.PathHistory) - 1
+	if step < 0 {
+		step = 0
+	}
+	if step > maxStep {
+		step = maxStep
+	}
+	vs.CurrentStep = step
+}
+
+func (vs *ViewState) JumpToSearchFrame(step int) {
+	if vs.Result == nil || len(vs.Result.SearchFrames) == 0 {
+		return
+	}
+	maxStep := len(vs.Result.SearchFrames) - 1
+	if step < 0 {
+		step = 0
+	}
+	if step > maxStep {
+		step = maxStep
+	}
+	vs.SearchStep = step
+	vs.rebuildAccumulatedSets()
+}
+
+func (vs *ViewState) CheckpointsPassed() map[int]bool {
+	passed := make(map[int]bool)
+	if vs.MapData == nil || vs.Result == nil || !vs.Result.Success || vs.MapData.TotalNumbers == 0 {
+		return passed
+	}
+	history := vs.Result.PathHistory
+	if len(history) < 2 {
+		return passed
+	}
+	nextNum := 0
+	for step := 0; step < vs.CurrentStep && step < len(history)-1; step++ {
+		for _, p := range slidePositions(history[step], history[step+1]) {
+			if vs.MapData.TileAt(p) == models.TileNumber {
+				numIdx := int(vs.MapData.Grid[p.X][p.Y] - '0')
+				if numIdx == nextNum {
+					passed[numIdx] = true
+					nextNum++
+				}
+			}
+		}
+		if nextNum >= vs.MapData.TotalNumbers {
+			break
+		}
+	}
+	return passed
+}
