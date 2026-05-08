@@ -14,14 +14,10 @@ type AStarSolver struct {
 func (a *AStarSolver) Name() string { return "A*" }
 
 func (a *AStarSolver) getH(state *models.GameState, m *models.MapData) int {
-	switch a.HeuristicID {
-	case 2:
-		return Heuristic2(state, m)
-	case 3:
+	if a.HeuristicID == 3 {
 		return Heuristic3(state, m)
-	default:
-		return Heuristic1(state, m)
 	}
+	return Heuristic1(state, m)
 }
 
 func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
@@ -31,23 +27,23 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 	if m.TotalNumbers == 0 {
 		startNum = -1
 	}
-	initState := models.GameState{Pos: m.StartPos, NextNum: startNum}
+	initialState := models.GameState{Pos: m.StartPos, NextNum: startNum}
 
 	pq := make(PriorityQueue, 0, 1000)
 	heap.Init(&pq)
 
-	initH := a.getH(&initState, m)
+	initH := a.getH(&initialState, m)
 
 	heap.Push(&pq, &SearchNode{
-		State:       initState,
-		Priority:    initH, // f(n) = g(n) + h(n) -> 0 + initH
-		Cost:        0,     // g(n)
+		State:       initialState,
+		Priority:    initH,
+		Cost:        0,
 		Path:        make([]models.MoveRecord, 0),
 		PathHistory: []models.Position{m.StartPos},
 	})
 
 	visited := make(map[models.StateKey]int)
-	visited[initState.GetKey()] = 0
+	visited[initialState.GetKey()] = 0
 	nodesEvaluated := 0
 	var searchFrames []models.SearchFrame
 
@@ -55,15 +51,7 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 		currNode := heap.Pop(&pq).(*SearchNode)
 		nodesEvaluated++
 
-		var children []models.Position
-
 		if currNode.State.IsGoal(m) {
-			if len(searchFrames) < models.MaxSearchFrames {
-				searchFrames = append(searchFrames, models.SearchFrame{
-					Current:  currNode.State.Pos,
-					Children: children,
-				})
-			}
 			return &models.SolverResult{
 				Path:         currNode.Path,
 				PathHistory:  currNode.PathHistory,
@@ -80,47 +68,64 @@ func (a *AStarSolver) Solve(m *models.MapData) (*models.SolverResult, error) {
 			continue
 		}
 
+		var nextStates [4]models.GameState
+		var nextCosts [4]int
+		var nextDirs [4]models.Direction
+		var validChildren []models.Position
+		count := 0
+
 		for _, dir := range models.Directions {
 			newState, moveCost, isValid := currNode.State.Slide(m, dir)
-
 			if isValid {
-				newGCost := currNode.Cost + moveCost
-				stateKey := newState.GetKey()
-
-				// FIXED: was '>' (worse cost), now '<' (better cost)
-				if bestCost, exists := visited[stateKey]; !exists || newGCost < bestCost {
-					visited[stateKey] = newGCost
-					children = append(children, newState.Pos)
-
-					hCost := a.getH(&newState, m)
-					fCost := newGCost + hCost
-
-					newPath := make([]models.MoveRecord, len(currNode.Path), len(currNode.Path)+1)
-					copy(newPath, currNode.Path)
-					newPath = append(newPath, models.MoveRecord{Direction: dir, NewPos: newState.Pos, MoveCost: moveCost})
-
-					newHistory := make([]models.Position, len(currNode.PathHistory), len(currNode.PathHistory)+1)
-					copy(newHistory, currNode.PathHistory)
-					newHistory = append(newHistory, newState.Pos)
-
-					heap.Push(&pq, &SearchNode{
-						State:       newState,
-						Priority:    fCost,
-						Cost:        newGCost,
-						Path:        newPath,
-						PathHistory: newHistory,
-					})
-				}
+				nextStates[count] = newState
+				nextCosts[count] = moveCost
+				nextDirs[count] = dir
+				validChildren = append(validChildren, newState.Pos)
+				count++
 			}
 		}
 
 		if len(searchFrames) < models.MaxSearchFrames {
+			pathCopy := make([]models.Position, len(currNode.PathHistory))
+			copy(pathCopy, currNode.PathHistory)
 			searchFrames = append(searchFrames, models.SearchFrame{
-				Current:  currNode.State.Pos,
-				Children: children,
+				Current:    currNode.State.Pos,
+				Children:   validChildren,
+				PathToNode: pathCopy,
 			})
+		}
+
+		for i := 0; i < count; i++ {
+			newState := nextStates[i]
+			moveCost := nextCosts[i]
+			dir := nextDirs[i]
+			newGCost := currNode.Cost + moveCost
+			stateKey := newState.GetKey()
+
+			if bestCost, exists := visited[stateKey]; !exists || newGCost < bestCost {
+				visited[stateKey] = newGCost
+
+				hCost := a.getH(&newState, m)
+				fCost := newGCost + hCost
+
+				newPath := make([]models.MoveRecord, len(currNode.Path), len(currNode.Path)+1)
+				copy(newPath, currNode.Path)
+				newPath = append(newPath, models.MoveRecord{Direction: dir, NewPos: newState.Pos, MoveCost: moveCost})
+
+				newHistory := make([]models.Position, len(currNode.PathHistory), len(currNode.PathHistory)+1)
+				copy(newHistory, currNode.PathHistory)
+				newHistory = append(newHistory, newState.Pos)
+
+				heap.Push(&pq, &SearchNode{
+					State:       newState,
+					Priority:    fCost,
+					Cost:        newGCost,
+					Path:        newPath,
+					PathHistory: newHistory,
+				})
+			}
 		}
 	}
 
-	return &models.SolverResult{Success: false, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "A*", SearchFrames: searchFrames}, nil
+	return &models.SolverResult{Success: false, SearchFrames: searchFrames, TimeMs: time.Since(startTime).Milliseconds(), NodesEval: nodesEvaluated, Algorithm: "A*"}, nil
 }

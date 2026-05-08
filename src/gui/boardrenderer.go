@@ -18,17 +18,20 @@ import (
 )
 
 var (
-	colBg         = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
-	colWall       = color.NRGBA{R: 59, G: 59, B: 79, A: 255}   // #3B3B4F
-	colPath       = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
-	colLava       = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
-	colStart      = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
-	colGoal       = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
-	colNumber     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
-	colNumberTx   = color.NRGBA{R: 30, G: 30, B: 46, A: 255}   // #1E1E2E
-	colPlayer     = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
-	colTrail      = color.NRGBA{R: 209, G: 154, B: 102, A: 153} // #D19A66 @ 60%
-	colTreeEdge   = color.NRGBA{R: 150, G: 150, B: 170, A: 120} // subtle gray for tree edges
+	colBg       = color.NRGBA{R: 30, G: 30, B: 46, A: 255}    // #1E1E2E
+	colWall     = color.NRGBA{R: 59, G: 59, B: 79, A: 255}    // #3B3B4F
+	colPath     = color.NRGBA{R: 184, G: 208, B: 232, A: 255} // #B8D0E8
+	colLava     = color.NRGBA{R: 224, G: 108, B: 117, A: 255} // #E06C75
+	colStart    = color.NRGBA{R: 152, G: 195, B: 121, A: 255} // #98C379
+	colGoal     = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumber   = color.NRGBA{R: 229, G: 192, B: 123, A: 255} // #E5C07B
+	colNumberTx = color.NRGBA{R: 30, G: 30, B: 46, A: 255}    // #1E1E2E
+	colPlayer   = color.NRGBA{R: 209, G: 154, B: 102, A: 255} // #D19A66
+
+	// WARNA ANIMASI PATH
+	colTrail       = color.NRGBA{R: 209, G: 154, B: 102, A: 190} // Oranye untuk Solusi Akhir
+	colSearchTrail = color.NRGBA{R: 198, G: 120, B: 221, A: 160} // Ungu untuk Penelusuran Sementara
+
 	colVisitedDot = color.NRGBA{R: 200, G: 200, B: 220, A: 180} // light dot for visited
 	colFrontier   = color.NRGBA{R: 97, G: 175, B: 239, A: 200}  // cyan for frontier outline
 	colCurrent    = color.NRGBA{R: 97, G: 175, B: 239, A: 255}  // bright cyan for current
@@ -139,19 +142,10 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 		}
 	}
 
-	// 2. Search phase: draw tree edges + indicators
+	// 2. FASE PENCARIAN (SEARCH PHASE)
 	if b.state.SearchPhase && b.state.Result != nil && len(b.state.Result.SearchFrames) > 0 {
-		// Draw tree edges for all frames up to current step
-		for i := 0; i <= b.state.SearchStep && i < len(b.state.Result.SearchFrames); i++ {
-			frame := b.state.Result.SearchFrames[i]
-			px, py := cellCenter(frame.Current)
-			for _, child := range frame.Children {
-				cx, cy := cellCenter(child)
-				drawThinLine(img, px, py, cx, cy, colTreeEdge)
-			}
-		}
 
-		// Draw visited indicator: small light dot in center of each visited cell
+		// Draw visited indicator
 		visited := b.state.VisitedSet()
 		for p := range visited {
 			cx, cy := cellCenter(p)
@@ -162,7 +156,7 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 			drawCircle(img, cx, cy, dotR, colVisitedDot)
 		}
 
-		// Draw frontier indicator: small hollow cyan circle on each frontier cell
+		// Draw frontier indicator
 		frontier := b.state.FrontierSet()
 		for p := range frontier {
 			cx, cy := cellCenter(p)
@@ -173,8 +167,21 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 			drawCircleOutline(img, cx, cy, circleR, colFrontier)
 		}
 
-		// Draw current node: bright cyan filled circle
+		// Ambil frame pencarian saat ini
 		frame := b.state.Result.SearchFrames[b.state.SearchStep]
+
+		// NEW LOGIC: Gambar Path Eksplorasi Khusus Iterasi Ini (Warna Ungu, Tipis)
+		if len(frame.PathToNode) > 1 {
+			for s := 1; s < len(frame.PathToNode); s++ {
+				p1 := frame.PathToNode[s-1]
+				p2 := frame.PathToNode[s]
+				cx1, cy1 := cellCenter(p1)
+				cx2, cy2 := cellCenter(p2)
+				drawThickLine(img, cx1, cy1, cx2, cy2, 2, colSearchTrail)
+			}
+		}
+
+		// Draw current node (Sorot titik yang sedang dipertimbangkan)
 		cx, cy := cellCenter(frame.Current)
 		r := cellSize / 3
 		if r < 2 {
@@ -197,7 +204,7 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 	}
 	drawStar(img, gx, gy, starOuter, starInner, colGoal)
 
-	// 4. Path trail (solution phase only)
+	// 4. FASE SOLUSI FINAL (SOLUTION PHASE)
 	if !b.state.SearchPhase && b.state.Result != nil && b.state.Result.Success {
 		history := b.state.Result.PathHistory
 		steps := b.state.CurrentStep
@@ -207,7 +214,8 @@ func (b *BoardRenderer) draw(w, h int) image.Image {
 				p2 := history[s]
 				cx1, cy1 := cellCenter(p1)
 				cx2, cy2 := cellCenter(p2)
-				drawThickLine(img, cx1, cy1, cx2, cy2, 3, colTrail)
+				// Ketebalan dinaikkan menjadi 4 dan warna menggunakan colTrail
+				drawThickLine(img, cx1, cy1, cx2, cy2, 4, colTrail)
 			}
 		}
 	}
@@ -239,7 +247,7 @@ func tileColor(t models.TileType) color.Color {
 	case models.TileStart:
 		return colStart
 	case models.TileGoal:
-		return colPath // goal uses path tile; star drawn on top
+		return colPath
 	case models.TileNumber:
 		return colNumber
 	}
