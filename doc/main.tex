@@ -1,0 +1,558 @@
+\documentclass[12pt,a4paper]{article}
+
+% ── Geometry & spacing ──────────────────────────────────────
+\usepackage[margin=2.5cm]{geometry}
+\setlength{\headheight}{14.5pt}
+\addtolength{\topmargin}{-2.5pt}
+\setlength{\parindent}{1.25em}
+\setlength{\parskip}{0pt}
+
+% ── Encoding & language ─────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[indonesian]{babel}
+
+% ── Font ────────────────────────────────────────────────────
+\usepackage{lmodern}
+
+% ── Math ────────────────────────────────────────────────────
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+
+% ── Graphics & figures ──────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ── Tables ──────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+
+% ── Lists ───────────────────────────────────────────────────
+\usepackage{enumitem}
+
+% ── Code listings ───────────────────────────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codeframe}{RGB}{200,200,200}
+\definecolor{codekw}{RGB}{0,0,180}
+\definecolor{codecomment}{RGB}{60,128,49}
+\definecolor{codestring}{RGB}{163,21,21}
+
+\lstdefinestyle{default}{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakatwhitespace=false,
+  tabsize=2,
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{codeframe},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  xleftmargin=2.5em,
+  framexleftmargin=2em,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecomment}\itshape,
+  stringstyle=\color{codestring},
+}
+% Language-specific styles — add more as needed
+\lstdefinestyle{go}{style=default, language=Python}    % closest builtin
+\lstdefinestyle{python}{style=default, language=Python}
+\lstdefinestyle{java}{style=default, language=Java}
+\lstdefinestyle{cpp}{style=default, language=C++}
+\lstdefinestyle{bash}{style=default, language=bash}
+
+\lstset{style=default}   % global default
+
+% ── Boxes (for tips / callouts) ──────────────────────────────
+\usepackage{tcolorbox}
+\tcbuselibrary{listings, skins, breakable}
+
+\newtcolorbox{infobox}[1][Note]{
+  colback=blue!5!white, colframe=blue!50!black,
+  fonttitle=\bfseries, title=#1,
+  breakable
+}
+\newtcolorbox{warnbox}[1][Warning]{
+  colback=orange!10!white, colframe=orange!80!black,
+  fonttitle=\bfseries, title=#1,
+  breakable
+}
+
+% ── Hyperlinks ──────────────────────────────────────────────
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue, citecolor=black}
+
+% ── SI units ────────────────────────────────────────────────
+\usepackage{siunitx}
+
+% ── Header / Footer ─────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\CourseCode{} -- \CourseName}
+\rhead{\thepage}
+
+% ── First-line indent on all sections ───────────────────────
+\usepackage{indentfirst}
+
+\newcommand{\CourseCode}{IF2211}
+\newcommand{\CourseName}{Strategi Algoritma}
+\newcommand{\AssignmentSubtitle}{Ice Sliding Puzzle Solver}
+\newcommand{\Semester}{Semester II / 2025--2026}
+
+
+\newcommand{\MemberA}{Nicholas Wise Saragih Sumbayak (13524037)}
+\newcommand{\MemberB}{Reinhard Alfonzo Hutabarat (13524056)}
+
+% Institution
+\newcommand{\Lab}{Laboratorium Ilmu dan Rekayasa Komputasi}
+\newcommand{\Program}{Teknik Informatika}
+\newcommand{\Faculty}{Sekolah Teknik Elektro dan Informatika}
+\newcommand{\University}{Institut Teknologi Bandung}
+
+% Repository / deployment links (used in Appendix)
+\newcommand{\RepoURL}{https://github.com/your-org/your-repo}
+
+\begin{document}
+
+\begin{titlepage}
+  \begin{center}
+    \vspace*{1cm}
+    {\Huge \textbf{Laporan Tugas Kecil 3}}\\[0.4cm]
+    {\Large \textsc{\CourseCode{} \CourseName}}\\[0.2cm]
+    {\large \textsc{\AssignmentSubtitle}}\\[0.2cm]
+    {\large \textsc{\Semester}}\\[2cm]
+
+     \includegraphics[height=6cm]{logo-itb.png}\\[2cm]
+
+    {\large \textbf{Disusun oleh:}}\\[0.3cm]
+    {\large
+      \MemberA\\
+      \MemberB\\
+    }
+
+    \vfill
+
+    {\large \textsc{\Lab}}\\[0.15cm]
+    {\large \textsc{Program Studi \Program}}\\[0.15cm]
+    {\large \textsc{\Faculty}}\\[0.15cm]
+    {\large \textsc{\University}}\\
+  \end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Pendahuluan}
+
+\textit{Ice Sliding Puzzle} adalah permainan logika di mana pemain harus menggerakkan karakter dari titik awal menuju titik keluar di atas permukaan es yang licin. Mekanik utama dari permainan ini adalah karakter (pin) hanya dapat bergerak secara horizontal atau vertikal, namun karena permukaan yang licin, karakter tidak akan berhenti bergerak sampai menabrak dinding atau rintangan batu.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth]{ice-sliding.jpg}
+  \caption{Permainan \textit{Ice Sliding Puzzle}}
+  \label{fig:ice-sliding-puzzle}
+\end{figure}
+
+
+Tujuan akhir dari Tugas Kecil ini adalah menemukan jalur solusi yang memandu karakter utama menuju titik tujuan secara selamat. Dalam perjalanannya, pemain harus menghindari wilayah lava (kotak merah) yang akan menyebabkan \textit{game over} jika dilewati. Selain itu, terdapat modifikasi \textit{constraint} tambahan berupa \textit{tile} berangka; pemain diwajibkan untuk melewati \textit{tile} angka tersebut sesuai dengan urutan membesar secara berurutan. 
+
+\section{Dasar Teori}
+
+Pada persoalan pencarian jalur (\textit{pathfinding}), kita merepresentasikan status permainan sebagai sebuah graf atau pohon pencarian. Simpul atau \textit{node} melambangkan posisi berhentinya karakter dan status angka yang sudah dilewati, sedangkan sisi atau \textit{edge} melambangkan aksi pergerakan.
+
+Dalam mengeksplorasi graf ini, terdapat dua pendekatan utama: pencarian tanpa informasi (\textit{uninformed search}) dan pencarian heuristik berinformasi (\textit{informed search}).
+
+\subsection{Uniform Cost Search (UCS)}
+\textit{Uniform Cost Search} (UCS) adalah algoritma \textit{uninformed search}
+yang merupakan perluasan dari \textit{Breadth-First Search} (BFS). Algoritma ini
+mengeksplorasi graf dengan senantiasa memilih simpul perluasan yang memiliki
+biaya lintasan terkumulatif $g(n)$ paling rendah. UCS sangat terjamin
+optimalitas dan kelengkapannya (\textit{complete}) karena algoritma ini
+menyusuri ruang pencarian secara sistematis berdasarkan \textit{cost}
+sebenarnya. Namun, karena tidak menggunakan informasi arah menuju tujuan, UCS
+seringkali mengeksplorasi cabang yang tidak diperlukan (yang seringkali disebut
+\textit{blind search}) sehingga menghabiskan waktu dan memori komputasi. Fungsi
+evaluasi yang digunakan secara tunggal adalah:
+$$f(n) = g(n)$$
+
+\subsection{Greedy Best-First Search (GBFS)}
+\textit{Greedy Best-First Search} (GBFS) merupakan algoritma \textit{informed
+search} yang mengutamakan perluasan simpul berdasarkan jarak perkiraan terdekat
+menuju titik tujuan yang direpresentasikan melalui fungsi heuristik
+$h(n)$. GBFS memilih simpul yang kelihatannya paling dekat dengan tujuan di
+setiap langkahnya, sehingga proses pencarian sering kali jauh lebih cepat
+dibandingkan UCS. Akan tetapi, GBFS memiliki kelemahan utama yaitu ia tidak
+mempertimbangkan biaya historis lintasan yang sudah dilalui. Oleh karena itu,
+GBFS tidak menjamin penemuan jalur yang optimal secara keseluruhan dan rentan
+terjebak pada solusi \textit{sub-optimal}. A* memiliki fungsi evaluasi yaitu:
+$$f(n) = h(n)$$
+
+\subsection{A* Search (A-Star)}
+Algoritma A* adalah bentuk \textit{informed search} yang paling populer dan
+banyak digunakan. A* menggabungkan pendekatan dari UCS dan GBFS untuk menemukan
+lintasan tercepat sekaligus paling optimal. Hal ini dicapai dengan menggabungkan
+biaya riil akumulatif, $g(n)$, dan perkiraan sisa biaya heuristik, $h(n)$.
+Selama fungsi heuristik $h(n)$ bersifat \textit{admissible} (tidak pernah
+\textit{overestimate} atau melebih-lebihkan biaya riil dari simpul ke tujuan),
+A* dijamin akan menemukan solusi dengan total biaya seminimal mungkin. Fungsi
+evaluasinya dirumuskan sebagai:
+$$f(n) = g(n) + h(n)$$
+
+\subsection{Iterative Deepening A* (IDA*)}
+\textit{Iterative Deepening A*} (IDA*) adalah variasi pengembangan memori dari
+algoritma A*. Pada papan yang cukup kompleks dengan percabangan dan kedalaman
+yang sangat jauh, algoritma A* konvensional akan memakan banyak memori untuk
+menyimpan seluruh simpul di struktur data \textit{Priority Queue}. IDA*
+memecahkan permasalahan ini dengan cara menjalankan \textit{Depth-First Search}
+(DFS) secara berulang (\textit{iterative}). DFS tersebut dibatasi oleh sebuah
+\textit{threshold} (batas batas) fungsi $f(n)$.
+
+Pada literasi pertama, batas $f$-cost ini diset ke nilai evaluasi $f(n)$ pada
+titik awal. DFS akan menelusuri cabang secara mendalam, namun memotong lintasan
+apabila simpul melampaui batas saat ini. Jika pencarian tidak menemukan solusi,
+nilai ambang batas akan diperbarui ke nilai $f(n)$ minimum terendah yang sempat
+dipangkas sebelumnya, lalu DFS dieksekusi ulang. Strategi ini mempertahankan
+sifat optimal yang dimiliki A* dengan hanya membutuhkan pengalokasian memori
+dalam tingkat kompleksitas $O(d)$ dari kedalaman simpul.
+
+
+\section{Desain dan Implementasi}
+
+\subsection{Desain Heuristik}
+
+Fungsi heuristik digunakan oleh algoritma \textit{informed search} (GBFS, A*, IDA*) untuk memperkirakan sisa biaya dari suatu status menuju tujuan. Pada program ini, terdapat tiga fungsi heuristik yang diimplementasikan.
+
+\subsubsection{Heuristik 1 (H1) -- Pure Manhattan Distance}
+Heuristik pertama menghitung jarak Manhattan murni antara posisi karakter saat ini dengan posisi tujuan ($O$):
+\[
+h_1(n) = |x_{\text{current}} - x_{\text{goal}}| + |y_{\text{current}} - y_{\text{goal}}|
+\]
+Fungsi ini bersifat \textit{admissible} karena jarak Manhattan tidak pernah
+melebihi biaya lintasan riil pada papan dengan bobot seragam. Namun, H1 tidak
+mempertimbangkan mekanik \textit{sliding} maupun keberadaan angka-angka yang
+harus dikunjungi, sehingga kurang informatif untuk papan yang kompleks.
+
+\subsubsection{Heuristik 2 (H2) -- Overshoot-Penalty Stop Point}
+Heuristik kedua memperhitungkan mekanik \textit{sliding} di mana karakter hanya
+dapat berhenti pada petak yang berada tepat di depan dinding atau batu. Apabila
+posisi saat ini dan target tidak berada dalam satu baris atau kolom yang sama
+($x_{\text{current}} \neq x_{\text{target}}$ dan $y_{\text{current}} \neq
+y_{\text{target}}$), maka karakter harus berbelok. Dua titik perhentian
+potensial untuk berbelok adalah $(x_{\text{current}}, y_{\text{target}})$ dan
+$(x_{\text{target}}, y_{\text{current}})$. Jika keduanya tidak memiliki dinding
+di sekitar yang dapat menghentikan laju karakter, maka heuristik menambahkan
+penalti sebesar $2 \times \text{minCost}$..
+
+\begin{lstlisting}[style=go, caption={Heuristik 2 -- Overshoot-penalty (H2)}]
+func Heuristic2(state *GameState, m *MapData) int {
+    target := m.GoalPos
+    if state.NextNum != -1 {
+        target = m.NumberPos[state.NextNum]
+    }
+    h := manhattanDistance(state.Pos, target) * m.MinCost
+    if currX != targetX && currY != targetY {
+        c1 := checkRock(m, currX, targetY+1) ||
+              checkRock(m, currX, targetY-1)
+        c2 := checkRock(m, targetX+1, currY) ||
+              checkRock(m, targetX-1, currY)
+        if !c1 && !c2 {
+            h += 2 * m.MinCost
+        }
+    }
+    return h
+}
+\end{lstlisting}
+
+\subsubsection{Heuristik 3 (H3) -- Manhattan Checkpoint}
+Heuristik ketiga dirancang untuk menangani papan dengan petak-petak angka.
+Heuristik ini menghitung total perkiraan biaya dari posisi saat ini menuju
+\textit{goal} dengan mempertimbangkan semua angka yang harus dilewati secara
+berurutan:
+\[
+h_3(n) = |p_{\text{current}} - p_{\text{next}}| + \sum_{i = \text{next}}^{k-1} |p_i - p_{i+1}| + |p_{k-1} - p_{\text{goal}}|
+\]
+Apabila semua angka telah dilewati ($\text{NextNum} = -1$), H3 hanya menghitung jarak Manhattan ke \textit{goal}. 
+
+\begin{lstlisting}[style=go, caption={Heuristik 3 -- Manhattan Checkpoint (H3)}]
+func Heuristic3(state *GameState, m *MapData) int {
+    if state.NextNum == -1 {
+        return manhattanDistance(state.Pos, m.GoalPos)
+    }
+    cost := manhattanDistance(state.Pos, m.NumberPos[state.NextNum])
+    for i := state.NextNum; i < m.TotalNumbers-1; i++ {
+        cost += manhattanDistance(m.NumberPos[i], m.NumberPos[i+1])
+    }
+    if m.TotalNumbers > 0 {
+        cost += manhattanDistance(
+            m.NumberPos[m.TotalNumbers-1], m.GoalPos)
+    }
+    return cost
+}
+\end{lstlisting}
+
+\subsection{Arsitektur Program}
+
+Program dibangun menggunakan bahasa Go dengan pustaka grafis Fyne v2. Arsitektur mengikuti pola \textit{layered architecture} dengan pemisahan model data, logika pencarian, dan antarmuka pengguna.
+
+\subsubsection{Package core/models}
+Package ini berisi struktur data inti: \texttt{MapData} (papan, grid, tipe petak, biaya),
+\texttt{GameState} (posisi karakter dan angka berikutnya yang harus dikunjungi),
+\texttt{SolverResult} (hasil pencarian beserta statistik), \texttt{SearchFrame}
+(snapshot ekspansi untuk visualisasi pencarian), serta tipe-tipe pendukung
+seperti \texttt{Position}, \texttt{Direction}, \texttt{MoveRecord}, dan
+\texttt{TileType},
+
+\subsubsection{Package core/parser}
+Package ini bertanggung jawab membaca dan memvalidasi file konfigurasi papan
+dalam format \texttt{.txt}. Parser memvalidasi keberadaan tepat satu titik awal
+($Z$) dan satu titik tujuan ($O$), serta memastikan angka-angka pada papan
+berurutan mulai dari $0$.
+
+\subsubsection{Package core/solver}
+Berisi implementasi empat algoritma pencarian: UCS (prioritas berdasarkan biaya
+kumulatif $g(n)$), GBFS (prioritas berdasarkan heuristik $h(n)$), A* (prioritas
+$g(n) + h(n)$), dan IDA* (DFS rekursif dengan batas \textit{threshold} $f(n)$).
+Seluruh algoritma kecuali IDA* menggunakan \textit{priority queue} (min-heap)
+melalui \texttt{container/heap} dari Go. Setiap algoritma mencatat
+\textit{search frames} selama proses ekspansi simpul untuk keperluan visualisasi
+fase pencarian pada GUI.
+
+\subsubsection{Package gui}
+Mengimplementasikan antarmuka pengguna menggunakan framework Fyne v2. Terdiri
+dari empat komponen utama:
+\begin{enumerate}[label=\arabic*.]
+    \item \texttt{MainWindow} -- mengatur tata letak jendela dan menghubungkan
+        seluruh \textit{callback} antar komponen.
+    \item \texttt{LeftPanel} -- panel kontrol di sisi kiri yang berisi pemilih
+        algoritma dan heuristik, tombol \textit{run}, serta kendali
+        \textit{playback}.
+    \item \texttt{BoardRenderer} -- \textit{canvas} kustom Fyne yang menggambar
+        papan, token pemain, jalur solusi, serta visualisasi \textit{search
+        overlay} (node frontier, visited, current).
+    \item \texttt{ViewState} -- pengelola status \textit{playback} dua fase
+        (fase pencarian yang menampilkan animasi ekspansialgoritma, dan fase
+        solusi yang menampilkan jalur akhir).
+\end{enumerate}
+
+\subsection{Struktur Proyek}
+\begin{lstlisting}[style=bash, caption={Struktur direktori proyek}]
+Tucil3_13524037_13524056/
++-- bin/
+|   +-- tucil3                      # Binary hasil kompilasi
++-- doc/
+|   +-- main.tex                    # Sumber laporan LaTeX
+|   +-- main.pdf                    # Laporan dalam PDF
+|   +-- ice-sliding.jpg             # Ilustrasi puzzle
+|   +-- logo-itb.png                # Logo ITB
++-- src/
+|   +-- go.mod
+|   +-- go.sum
+|   +-- main.go                     # Titik masuk program
+|   +-- core/
+|   |   +-- models/                 # Struktur data inti
+|   |   |   +-- direction.go
+|   |   |   +-- map.go
+|   |   |   +-- position.go
+|   |   |   +-- solver.go
+|   |   |   +-- state.go
+|   |   +-- parser/
+|   |   |   +-- parser.go
+|   |   +-- solver/
+|   |       +-- astar.go            # Algoritma A*
+|   |       +-- gbfs.go             # Greedy Best-First Search
+|   |       +-- heuristics.go       # H1, H2, H3
+|   |       +-- idastar.go          # Iterative Deepening A*
+|   |       +-- pq.go               # PriorityQueue
+|   |       +-- ucs.go              # Uniform Cost Search
+|   +-- gui/
+|       +-- boardrenderer.go
+|       +-- leftpanel.go
+|       +-- viewstate.go
+|       +-- window.go
++-- test/
+    +-- input/                      # Berkas uji
+    |   +-- input1.txt
+    |   +-- input2.txt
+    |   +-- input3.txt
+    |   +-- input4.txt
+    |   +-- tc1.txt
+    |   +-- tc2.txt
+    |   +-- tc3.txt
+    |   +-- tc_nyawit.txt
+    +-- output/
+        +-- board2.txt
+\end{lstlisting}
+
+
+% ============================================================
+%   SECTION 5 — EXPERIMENTS & RESULTS
+% ============================================================
+
+\section{Experiments and Results}
+
+\subsection{Test Case Category A}
+
+\subsubsection{Test Case 1: \textit{[Description]}}
+\textbf{Input:} Describe the input used.
+
+\textbf{Expected output:} What the correct result should be.
+
+\begin{figure}[H]
+  \centering
+  % \includegraphics[width=0.75\textwidth]{screenshot_1.png}
+  \fbox{\parbox{0.7\textwidth}{\centering\vspace{2cm}[Screenshot placeholder]\vspace{2cm}}}
+  \caption{Test case 1 — result screenshot}
+\end{figure}
+
+\textbf{Analysis:} Explain whether the result is correct and why.
+
+\subsubsection{Test Case 2: \textit{[Description]}}
+\ldots
+
+\subsection{Test Case Category B}
+\ldots
+
+\subsection{Overall Analysis}
+
+\subsubsection{Algorithm A — Strengths and Limitations}
+\textbf{Strengths:}
+\begin{itemize}[leftmargin=1.5em]
+  \item Strength one.
+  \item Strength two.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}[leftmargin=1.5em]
+  \item Limitation one.
+  \item Limitation two.
+\end{itemize}
+
+\subsubsection{Algorithm B — Strengths and Limitations}
+\ldots
+
+% ============================================================
+%   SECTION 6 — CONCLUSION
+% ============================================================
+
+\section{Conclusion}
+
+\subsection{Summary}
+\begin{enumerate}[label=\arabic*., leftmargin=2em]
+  \item \textbf{Finding 1} --- description.
+  \item \textbf{Finding 2} --- description.
+  \item \textbf{Finding 3} --- description.
+\end{enumerate}
+
+\subsection{Suggestions for Future Work}
+\begin{enumerate}[label=\arabic*., leftmargin=2em]
+  \item Idea for improvement or extension one.
+  \item Idea for improvement or extension two.
+\end{enumerate}
+
+\subsection{Individual Reflections}
+
+\subsubsection{\MemberA}
+\textbf{Role:} \\
+\textbf{Reflection:} Write your personal reflection here.
+
+\subsubsection{\MemberB}
+\textbf{Role:} \\
+\textbf{Reflection:} \ldots
+
+\newpage
+\addcontentsline{toc}{section}{References}
+\section*{References}
+
+\begin{enumerate}[label={[\arabic*]}, leftmargin=2.5em, itemsep=0.3em]
+
+\item A. Author, \textit{Book Title}, Edition. City: Publisher, Year.
+
+\item A. Author and B. Author, ``Article title,'' \textit{Journal Name}, vol.~X, no.~Y,
+      pp.~1--10, Month Year. \url{https://doi.org/10.xxxx/xxxxx}.
+
+\item Organisation, ``Web resource title,'' Year. [Online]. Available: \url{https://example.com}.
+
+\end{enumerate}
+
+% ================================================================
+% LAMPIRAN
+% ================================================================
+\newpage
+\section*{Lampiran}
+\addcontentsline{toc}{section}{Lampiran}
+
+\begin{enumerate}
+    \item \textbf{Repositori GitHub:} \\
+    \url{https://github.com/nicholaswisee/Tucil3_13524037_13524056}
+
+    \item \textbf{Tabel Checklist Pembuatan Fitur:}
+
+    \begin{table}[H]
+        \centering
+        \renewcommand{\arraystretch}{1.5}
+        \begin{tabular}{|c|p{10cm}|c|c|}
+            \hline
+            \textbf{No} & \textbf{Poin} & \textbf{Ya} & \textbf{Tidak} \\
+            \hline
+            1 & Program berhasil dikompilasi tanpa kesalahan & \checkmark & \\
+            \hline
+            2 & Program berhasil dijalankan & \checkmark & \\
+            \hline
+            3 & Solusi yang diberikan program benar dan mematuhi aturan permainan & \checkmark & \\
+            \hline
+            4 & Program dapat membaca masukan berkas \texttt{.txt} serta menyimpan solusi dalam berkas \texttt{.txt} & \checkmark & \\
+            \hline
+            5 & Program memiliki \textit{Graphical User Interface} (GUI) & \checkmark & \\
+            \hline
+            6 & Ada algoritma \textit{pathfinding} alternatif selain dari spesifikasi wajib (IDA*) & \checkmark & \\
+            \hline
+            7 & Ada tambahan dua alternatif heuristik selain yang utama (H1 dan H3) & \checkmark & \\
+            \hline
+        \end{tabular}
+        \caption{Tabel checklist implementasi fitur Tugas Kecil 3.}
+        \label{tab:checklist}
+    \end{table}
+
+    \addcontentsline{toc}{section}{Pernyataan Keaslian}
+    \item \textbf{Pernyataan Keaslian}
+\end{enumerate}
+
+\begin{center}
+\begin{minipage}{0.85\textwidth}
+\begin{tcolorbox}[
+  colback=white, colframe=black,
+  boxrule=0.8pt, arc=0pt,
+  left=5pt, right=5pt, top=10pt, bottom=10pt
+]
+Tugas ini disusun sepenuhnya tanpa bantuan kecerdasan buatan
+(\textit{Generative AI}), melainkan hasil pemikiran dan analisis mandiri.
+
+\vspace{1cm}
+
+\begin{flushright}
+\includegraphics[height=2cm]{ttd-wise.png}\\
+
+{Nicholas Wise Saragih Sumbayak}
+
+{13524037}
+
+%\includegraphics[height=2cm]{ttd-ponz.png}\\
+
+{Reinhard Alfonzo Hutabarat}
+
+{13524056}
+
+\end{flushright}
+\end{tcolorbox}
+\end{minipage}
+\end{center}
+
+\end{document}
