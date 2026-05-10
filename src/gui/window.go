@@ -146,12 +146,12 @@ func NewMainWindow() *MainWindow {
 				return
 			}
 			defer writer.Close()
-			content := formatMapData(state.MapData)
+			content := formatExportResult(state.MapData, state.Result)
 			if _, writeErr := writer.Write([]byte(content)); writeErr != nil {
 				dialog.ShowError(writeErr, w)
 			}
 		}, w)
-		sd.SetFileName("board.txt")
+		sd.SetFileName("result.txt")
 		absOutput, _ := filepath.Abs(defaultOutputDir)
 		if uri, err := storage.ParseURI("file://" + absOutput); err == nil {
 			if listable, err := storage.ListerForURI(uri); err == nil {
@@ -501,5 +501,61 @@ func formatMapData(m *models.MapData) string {
 		}
 		sb.WriteByte('\n')
 	}
+	return sb.String()
+}
+
+// formatExportResult formats the output file with board configuration at final position,
+// execution time, and number of iterations.
+func formatExportResult(m *models.MapData, result *models.SolverResult) string {
+	var sb strings.Builder
+	
+	// Write board dimensions
+	sb.WriteString(fmt.Sprintf("%d %d\n", m.Height, m.Width))
+	
+	// Create a copy of the grid to show final position
+	finalGrid := make([][]rune, m.Height)
+	for i := range m.Grid {
+		finalGrid[i] = make([]rune, m.Width)
+		copy(finalGrid[i], m.Grid[i])
+	}
+	
+	// If there's a solution, mark the final position with 'A' (Actor)
+	if result != nil && result.Success && len(result.PathHistory) > 0 {
+		finalPos := result.PathHistory[len(result.PathHistory)-1]
+		// Only mark if it's not already the goal
+		if finalGrid[finalPos.X][finalPos.Y] != 'O' {
+			finalGrid[finalPos.X][finalPos.Y] = 'A'
+		}
+	}
+	
+	// Write the grid
+	for _, row := range finalGrid {
+		sb.WriteString(string(row))
+		sb.WriteByte('\n')
+	}
+	
+	// Write costs
+	for _, row := range m.Costs {
+		for j, c := range row {
+			if j > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(fmt.Sprintf("%d", c))
+		}
+		sb.WriteByte('\n')
+	}
+	
+	// Add empty line before statistics
+	sb.WriteByte('\n')
+	
+	// Write execution time and iterations
+	if result != nil {
+		sb.WriteString(fmt.Sprintf("Waktu eksekusi: %d ms\n", result.TimeMs))
+		sb.WriteString(fmt.Sprintf("Banyak iterasi yang dilakukan: %d\n", result.NodesEval))
+	} else {
+		sb.WriteString("Waktu eksekusi: -\n")
+		sb.WriteString("Banyak iterasi yang dilakukan: -\n")
+	}
+	
 	return sb.String()
 }
